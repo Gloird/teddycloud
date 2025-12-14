@@ -638,7 +638,7 @@ submodules:
 	$(QUIET)git submodule init
 	$(QUIET)git submodule update
 
-preinstall: clean build web_copy $(INSTALL_DIR)/ $(PREINSTALL_DIR)/
+preinstall: clean build web web_copy $(INSTALL_DIR)/ $(PREINSTALL_DIR)/
 	$(QUIET)$(ECHO) '[ ${GREEN}PRE${NC}  ] Preinstall'
 	$(QUIET)$(CP) $(BIN_DIR)/* $(PREINSTALL_DIR)/
 	$(QUIET)$(CP_R) $(subst /,$(SEP),$(CONTRIB_DIR)/*) $(subst /,$(SEP),$(PREINSTALL_DIR)/)

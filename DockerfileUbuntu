@@ -4,7 +4,9 @@ FROM ubuntu:latest AS buildenv
 ARG NO_SANITIZERS=0
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gcc protobuf-c-compiler build-essential git zip curl
+    && apt-get install -y --no-install-recommends gcc protobuf-c-compiler build-essential git zip curl ca-certificates \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs
 
 COPY . /buildenv
 WORKDIR /buildenv
