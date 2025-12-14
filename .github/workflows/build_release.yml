@@ -7,7 +7,7 @@ on:
       - tc_nightly
       - tc_v*
   pull_request:
-    branches: [ "master", "develop" ]
+    branches: [ "master", "develop", "develop-gloird" ]
 
 jobs:
   build-windows-amd64:
