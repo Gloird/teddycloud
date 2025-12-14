@@ -3596,7 +3596,7 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
     }
 
     /* Build output template path - yt-dlp uses %%(ext)s for extension */
-    char outputTemplate[512];
+    char outputTemplate[PATH_LEN];
     osSnprintf(outputTemplate, sizeof(outputTemplate), "%s%c%s", tempDir, PATH_SEPARATOR, outputBase);
 
 #ifdef WIN32
