@@ -3571,13 +3571,13 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
         fsCreateDir(tempDir);
     }
 
-    /* Generate unique filename */
+    /* Generate unique filename base */
     time_t now = time(NULL);
-    char tempFile[PATH_LEN];
-    osSnprintf(tempFile, sizeof(tempFile), "%s%curl_fetch_%" PRIuTIME ".%(ext)s", tempDir, PATH_SEPARATOR, now);
+    char outputBase[256];
+    osSnprintf(outputBase, sizeof(outputBase), "url_fetch_%" PRIuTIME, now);
 
     /* Build yt-dlp command */
-    char command[4096];
+    char command[8192];
     char audioFormat[64] = "bestaudio";
 
     /* Parse quality setting */
@@ -3595,9 +3595,9 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
         osSnprintf(audioFormat, sizeof(audioFormat), "bestaudio[abr<=%s]", quality);
     }
 
-    /* Output path without extension - yt-dlp will add it */
-    char outputTemplate[PATH_LEN];
-    osSnprintf(outputTemplate, sizeof(outputTemplate), "%s%curl_fetch_%" PRIuTIME, tempDir, PATH_SEPARATOR, now);
+    /* Build output template path - yt-dlp uses %%(ext)s for extension */
+    char outputTemplate[512];
+    osSnprintf(outputTemplate, sizeof(outputTemplate), "%s%c%s", tempDir, PATH_SEPARATOR, outputBase);
 
 #ifdef WIN32
     osSnprintf(command, sizeof(command),
