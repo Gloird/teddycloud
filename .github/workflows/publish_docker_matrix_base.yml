@@ -50,7 +50,12 @@ jobs:
       matrix:
         platform: ${{ fromJson(inputs.platforms) }}
     runs-on: ubuntu-latest
+    env:
+      REGISTRY_IMAGE: ghcr.io/${{ github.repository_owner }}/teddycloud
     steps:
+      - name: Set lowercase registry
+        id: registry
+        run: echo "REGISTRY_IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/teddycloud" >> $GITHUB_ENV
       - uses: actions/checkout@v6
         with:
           submodules: recursive
@@ -192,6 +197,8 @@ jobs:
     needs:
       - build
     steps:
+      - name: Set lowercase registry
+        run: echo "REGISTRY_IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/teddycloud" >> $GITHUB_ENV
       - name: Download digests
         uses: actions/download-artifact@v6
         with:
