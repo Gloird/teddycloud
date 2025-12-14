@@ -3564,20 +3564,20 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
     }
 
     /* Create temp directory if needed */
-    char tempDir[PATH_LEN];
-    osSnprintf(tempDir, sizeof(tempDir), "%s%c%s", client_ctx->settings->internal.datadirfull, PATH_SEPARATOR, "temp");
+    char tempDir[256];
+    osSnprintf(tempDir, sizeof(tempDir), "%s%ctemp", client_ctx->settings->internal.datadirfull, PATH_SEPARATOR);
     if (!fsDirExists(tempDir))
     {
         fsCreateDir(tempDir);
     }
 
-    /* Generate unique filename base - keep small to avoid truncation */
+    /* Generate unique filename base */
     time_t now = time(NULL);
-    char outputBase[32];
-    osSnprintf(outputBase, sizeof(outputBase), "uf_%" PRIuTIME, now);
 
     /* Build yt-dlp command */
     char command[8192];
+    char outputTemplate[512];
+    osSnprintf(outputTemplate, sizeof(outputTemplate), "%s%cuf_%" PRIuTIME, tempDir, PATH_SEPARATOR, now);
     char audioFormat[64] = "bestaudio";
 
     /* Parse quality setting */
@@ -3594,10 +3594,6 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
         /* Assume it's a bitrate like "128", "192", "256", "320" */
         osSnprintf(audioFormat, sizeof(audioFormat), "bestaudio[abr<=%s]", quality);
     }
-
-    /* Build output template path - yt-dlp uses %%(ext)s for extension */
-    char outputTemplate[PATH_LEN];
-    osSnprintf(outputTemplate, sizeof(outputTemplate), "%s%c%s", tempDir, PATH_SEPARATOR, outputBase);
 
 #ifdef WIN32
     osSnprintf(command, sizeof(command),
