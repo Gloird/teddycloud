@@ -4,6 +4,10 @@
 [submodule "cyclone/common"]
 	path = cyclone/common
 	url = https://github.com/Oryx-Embedded/Common
+
+[submodule "teddycloud_web"]
+	path = teddycloud_web
+	url = https://github.com/Gloird/teddycloud_web.git
 [submodule "cyclone/cyclone_tcp"]
 	path = cyclone/cyclone_tcp
 	url = https://github.com/Oryx-Embedded/CycloneTCP.git
