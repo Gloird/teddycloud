@@ -74,4 +74,7 @@ error_t handleApiCacheStats(HttpConnection *connection, const char_t *uri, const
 
 error_t handleApiPluginsGet(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx);
 
+error_t handleApiUrlInfo(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx);
+error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx);
+
 #endif

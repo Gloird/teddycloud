@@ -24,6 +24,7 @@
 #include "cert.h"
 #include "esp32.h"
 #include "cache.h"
+#include "handler_sse.h"
 
 error_t parsePostData(HttpConnection *connection, char_t *post_data, size_t buffer_size)
 {
@@ -3304,4 +3305,410 @@ error_t handleApiPluginsGet(HttpConnection *connection, const char_t *uri, const
         return httpWriteResponseString(connection, pluginJson, true);
     }
     return ERROR_FAILURE;
+}
+
+/**
+ * Parse yt-dlp JSON output for media info
+ */
+static cJSON *ytdlp_parse_info(const char *json_str)
+{
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json)
+    {
+        return NULL;
+    }
+    return json;
+}
+
+/**
+ * Execute yt-dlp command and capture output
+ */
+static error_t ytdlp_exec(const char *command, char *output, size_t output_size, bool capture_stderr)
+{
+    FILE *pipe = osPopen(command, "r");
+    if (!pipe)
+    {
+        TRACE_ERROR("Failed to execute yt-dlp command\r\n");
+        return ERROR_FAILURE;
+    }
+
+    size_t total_read = 0;
+    char buffer[1024];
+    while (fgets(buffer, sizeof(buffer), pipe) != NULL && total_read < output_size - 1)
+    {
+        size_t len = osStrlen(buffer);
+        if (total_read + len < output_size - 1)
+        {
+            osStrcpy(output + total_read, buffer);
+            total_read += len;
+        }
+    }
+    output[total_read] = '\0';
+
+    int status = osPclose(pipe);
+    if (status != 0)
+    {
+        TRACE_WARNING("yt-dlp exited with status %d\r\n", status);
+        return ERROR_FAILURE;
+    }
+
+    return NO_ERROR;
+}
+
+/**
+ * Check if yt-dlp is available
+ */
+static bool ytdlp_available(void)
+{
+    char output[256];
+#ifdef WIN32
+    error_t err = ytdlp_exec("yt-dlp --version 2>NUL", output, sizeof(output), false);
+#else
+    error_t err = ytdlp_exec("yt-dlp --version 2>/dev/null", output, sizeof(output), false);
+#endif
+    return err == NO_ERROR && osStrlen(output) > 0;
+}
+
+/**
+ * Handle /api/urlInfo - Get metadata from URL using yt-dlp
+ * POST body: { "url": "https://..." }
+ */
+error_t handleApiUrlInfo(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx)
+{
+    char_t post_data[POST_BUFFER_SIZE];
+    error_t error = parsePostData(connection, post_data, POST_BUFFER_SIZE);
+    if (error != NO_ERROR)
+    {
+        TRACE_ERROR("parsePostData failed\r\n");
+        return error;
+    }
+
+    char url[2048];
+    if (!queryGet(post_data, "url", url, sizeof(url)))
+    {
+        TRACE_ERROR("url parameter missing\r\n");
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "url parameter missing");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 400;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    if (!ytdlp_available())
+    {
+        TRACE_ERROR("yt-dlp not found\r\n");
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "yt-dlp is not installed on the server");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 500;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    /* Build yt-dlp command to get JSON info */
+    char command[4096];
+#ifdef WIN32
+    osSnprintf(command, sizeof(command),
+               "yt-dlp --dump-json --no-download --no-playlist \"%s\" 2>NUL", url);
+#else
+    osSnprintf(command, sizeof(command),
+               "yt-dlp --dump-json --no-download --no-playlist \"%s\" 2>/dev/null", url);
+#endif
+
+    TRACE_INFO("Getting URL info: %s\r\n", url);
+
+    char *output = osAllocMem(1024 * 64); /* 64KB buffer for JSON */
+    if (!output)
+    {
+        return ERROR_OUT_OF_MEMORY;
+    }
+
+    error = ytdlp_exec(command, output, 1024 * 64, false);
+    if (error != NO_ERROR)
+    {
+        osFreeMem(output);
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "Failed to fetch URL info. The URL may be invalid or unsupported.");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 400;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    cJSON *info = ytdlp_parse_info(output);
+    osFreeMem(output);
+
+    if (!info)
+    {
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "Failed to parse URL info");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 500;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    /* Build response with relevant fields */
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddBoolToObject(resp, "success", true);
+
+    cJSON *data = cJSON_CreateObject();
+    cJSON *title = cJSON_GetObjectItem(info, "title");
+    cJSON *duration = cJSON_GetObjectItem(info, "duration");
+    cJSON *thumbnail = cJSON_GetObjectItem(info, "thumbnail");
+    cJSON *uploader = cJSON_GetObjectItem(info, "uploader");
+    cJSON *extractor = cJSON_GetObjectItem(info, "extractor");
+    cJSON *webpage_url = cJSON_GetObjectItem(info, "webpage_url");
+
+    if (title && cJSON_IsString(title))
+        cJSON_AddStringToObject(data, "title", title->valuestring);
+    if (duration && cJSON_IsNumber(duration))
+        cJSON_AddNumberToObject(data, "duration", duration->valuedouble);
+    if (thumbnail && cJSON_IsString(thumbnail))
+        cJSON_AddStringToObject(data, "thumbnail", thumbnail->valuestring);
+    if (uploader && cJSON_IsString(uploader))
+        cJSON_AddStringToObject(data, "uploader", uploader->valuestring);
+    if (extractor && cJSON_IsString(extractor))
+        cJSON_AddStringToObject(data, "source", extractor->valuestring);
+    if (webpage_url && cJSON_IsString(webpage_url))
+        cJSON_AddStringToObject(data, "url", webpage_url->valuestring);
+    else
+        cJSON_AddStringToObject(data, "url", url);
+
+    cJSON_AddItemToObject(resp, "data", data);
+    cJSON_Delete(info);
+
+    char *jsonStr = cJSON_PrintUnformatted(resp);
+    httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+    error_t err = httpWriteResponseString(connection, jsonStr, false);
+    osFreeMem(jsonStr);
+    cJSON_Delete(resp);
+
+    return err;
+}
+
+/**
+ * Handle /api/urlFetch - Download audio from URL and save to temp file
+ * POST body: { "url": "https://...", "quality": "best|worst|128|192|256|320" }
+ */
+error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx)
+{
+    char overlay[16];
+    const char *rootPath = NULL;
+
+    if (queryPrepare(queryString, &rootPath, overlay, sizeof(overlay), &client_ctx->settings) != NO_ERROR)
+    {
+        return ERROR_FAILURE;
+    }
+
+    char_t post_data[POST_BUFFER_SIZE];
+    error_t error = parsePostData(connection, post_data, POST_BUFFER_SIZE);
+    if (error != NO_ERROR)
+    {
+        TRACE_ERROR("parsePostData failed\r\n");
+        return error;
+    }
+
+    char url[2048];
+    char quality[32] = "best";
+    char fetchId[64] = "";
+
+    if (!queryGet(post_data, "url", url, sizeof(url)))
+    {
+        TRACE_ERROR("url parameter missing\r\n");
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "url parameter missing");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 400;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    queryGet(post_data, "quality", quality, sizeof(quality));
+    queryGet(post_data, "fetchId", fetchId, sizeof(fetchId));
+
+    if (!ytdlp_available())
+    {
+        TRACE_ERROR("yt-dlp not found\r\n");
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "yt-dlp is not installed on the server");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 500;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    /* Create temp directory if needed */
+    char tempDir[PATH_LEN];
+    osSnprintf(tempDir, sizeof(tempDir), "%s%c%s", client_ctx->settings->internal.datadirfull, PATH_SEPARATOR, "temp");
+    if (!fsDirExists(tempDir))
+    {
+        fsCreateDir(tempDir);
+    }
+
+    /* Generate unique filename */
+    time_t now = time(NULL);
+    char tempFile[PATH_LEN];
+    osSnprintf(tempFile, sizeof(tempFile), "%s%curl_fetch_%" PRIuTIME ".%(ext)s", tempDir, PATH_SEPARATOR, now);
+
+    /* Build yt-dlp command */
+    char command[4096];
+    char audioFormat[64] = "bestaudio";
+
+    /* Parse quality setting */
+    if (osStrcmp(quality, "worst") == 0)
+    {
+        osStrcpy(audioFormat, "worstaudio");
+    }
+    else if (osStrcmp(quality, "best") == 0)
+    {
+        osStrcpy(audioFormat, "bestaudio");
+    }
+    else
+    {
+        /* Assume it's a bitrate like "128", "192", "256", "320" */
+        osSnprintf(audioFormat, sizeof(audioFormat), "bestaudio[abr<=%s]", quality);
+    }
+
+    /* Output path without extension - yt-dlp will add it */
+    char outputTemplate[PATH_LEN];
+    osSnprintf(outputTemplate, sizeof(outputTemplate), "%s%curl_fetch_%" PRIuTIME, tempDir, PATH_SEPARATOR, now);
+
+#ifdef WIN32
+    osSnprintf(command, sizeof(command),
+               "yt-dlp -f \"%s\" --extract-audio --audio-format mp3 --audio-quality 0 "
+               "--no-playlist -o \"%s.%%(ext)s\" --print after_move:filepath \"%s\" 2>NUL",
+               audioFormat, outputTemplate, url);
+#else
+    osSnprintf(command, sizeof(command),
+               "yt-dlp -f \"%s\" --extract-audio --audio-format mp3 --audio-quality 0 "
+               "--no-playlist -o \"%s.%%(ext)s\" --print after_move:filepath \"%s\" 2>/dev/null",
+               audioFormat, outputTemplate, url);
+#endif
+
+    TRACE_INFO("Fetching URL: %s\r\n", url);
+    TRACE_INFO("Command: %s\r\n", command);
+
+    /* Send SSE progress event */
+    if (osStrlen(fetchId) > 0)
+    {
+        char sseData[512];
+        osSnprintf(sseData, sizeof(sseData),
+                   "{\"fetchId\":\"%s\",\"status\":\"downloading\",\"progress\":0}", fetchId);
+        sse_sendEvent("url-fetch-progress", sseData, false);
+    }
+
+    char *output = osAllocMem(PATH_LEN);
+    if (!output)
+    {
+        return ERROR_OUT_OF_MEMORY;
+    }
+
+    error = ytdlp_exec(command, output, PATH_LEN, false);
+
+    if (error != NO_ERROR)
+    {
+        osFreeMem(output);
+        if (osStrlen(fetchId) > 0)
+        {
+            char sseData[512];
+            osSnprintf(sseData, sizeof(sseData),
+                       "{\"fetchId\":\"%s\",\"status\":\"error\",\"error\":\"Download failed\"}", fetchId);
+            sse_sendEvent("url-fetch-progress", sseData, false);
+        }
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "Failed to download audio from URL");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 500;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    /* Remove trailing newline from output path */
+    size_t len = osStrlen(output);
+    while (len > 0 && (output[len - 1] == '\n' || output[len - 1] == '\r'))
+    {
+        output[len - 1] = '\0';
+        len--;
+    }
+
+    TRACE_INFO("Downloaded to: %s\r\n", output);
+
+    /* Verify file exists */
+    if (!fsFileExists(output))
+    {
+        osFreeMem(output);
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "Downloaded file not found");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 500;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    /* Get relative path for frontend */
+    const char *relPath = output;
+    if (osStrncmp(output, rootPath, osStrlen(rootPath)) == 0)
+    {
+        relPath = output + osStrlen(rootPath);
+        if (relPath[0] == PATH_SEPARATOR)
+            relPath++;
+    }
+
+    /* Send SSE completion event */
+    if (osStrlen(fetchId) > 0)
+    {
+        char sseData[1024];
+        osSnprintf(sseData, sizeof(sseData),
+                   "{\"fetchId\":\"%s\",\"status\":\"complete\",\"progress\":100,\"filePath\":\"%s\"}",
+                   fetchId, output);
+        sse_sendEvent("url-fetch-progress", sseData, false);
+    }
+
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddBoolToObject(resp, "success", true);
+    cJSON_AddStringToObject(resp, "filePath", output);
+    cJSON_AddStringToObject(resp, "relativePath", relPath);
+
+    char *jsonStr = cJSON_PrintUnformatted(resp);
+    httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+    error_t err = httpWriteResponseString(connection, jsonStr, false);
+    osFreeMem(jsonStr);
+    osFreeMem(output);
+    cJSON_Delete(resp);
+
+    return err;
 }

@@ -133,6 +133,8 @@ request_type_t request_paths[] = {
     {REQ_GET, "/api/esp32/patchFirmware", SERTY_WEB, &handleApiESP32PatchFirmware},
     {REQ_POST, "/api/fileUpload", SERTY_WEB, &handleApiFileUpload},
     {REQ_POST, "/api/fileEncode", SERTY_WEB, &handleApiEncodeFile},
+    {REQ_POST, "/api/urlInfo", SERTY_WEB, &handleApiUrlInfo},
+    {REQ_POST, "/api/urlFetch", SERTY_WEB, &handleApiUrlFetch},
     {REQ_POST, "/api/pcmUpload", SERTY_WEB, &handleApiPcmUpload},
     {REQ_POST, "/api/tafUpload", SERTY_WEB, &handleApiTafUpload},
     {REQ_GET, "/api/fileIndexV2", SERTY_WEB, &handleApiFileIndexV2},

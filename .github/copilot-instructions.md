@@ -18,7 +18,7 @@ TeddyCloud is an alternative server for Toniebox devices written in C. It interc
 ### Frontend (React/TypeScript - `teddycloud_web/`)
 - **Framework**: Vite + React + TypeScript + Ant Design (AntD)
 - **Architecture**: Topic-based structure organized by feature domains (`tonies`, `tonieboxes`, `settings`, `community`)
-- **API Client**: `src/api/TeddyCloudApi.ts` (manually maintained, NOT auto-generated)
+- **API Client**: `src/api/apis/TeddyCloudApi.ts` (manually maintained, NOT auto-generated - listed in `.openapi-generator-ignore`)
 - **State Management**: React Context (`TeddyCloudContext`, `AudioContext`)
 - **i18n**: `react-i18next` with translation files in `src/i18n/`
 
@@ -29,20 +29,23 @@ TeddyCloud is an alternative server for Toniebox devices written in C. It interc
 
 ### Directory Structure
 ```
-src/           # Main C source files (backend)
-include/       # Header files - each .c has matching .h
-cyclone/       # TCP/SSL/Crypto library (submodule, modifications in src/cyclone/)
-proto/         # Protocol Buffer definitions for Toniebox communication
-wasm/          # WebAssembly TAF encoder for browser-based encoding
-contrib/       # Runtime data (certs, config templates, web assets)
-teddycloud_web/# React frontend (separate submodule)
-  src/pages/       # Route pages - thin, layout + composition only
-  src/components/  # Topic-specific UI (tonies/, tonieboxes/, settings/, community/)
-  src/api/         # API client (TeddyCloudApi.ts - do NOT regenerate!)
-  src/contexts/    # React contexts (TeddyCloudContext, AudioContext)
-  src/hooks/       # Shared generic hooks only
-  src/utils/       # Pure helper functions (validators, formatters)
-  src/constants/   # URLs, numbers, shared constants
+src/                 # Main C source files (backend)
+include/             # Header files - each .c has matching .h
+src/cyclone/         # LOCAL modifications to Cyclone library (NOT in cyclone/ submodule)
+cyclone/             # TCP/SSL/Crypto library (submodule - DO NOT modify directly)
+proto/               # Protocol Buffer definitions for Toniebox communication
+src/proto/           # Generated protobuf C files (via protoc-c)
+src/platform/        # Platform-specific code (platform_linux.c, platform_windows.c)
+wasm/                # WebAssembly TAF encoder for browser-based encoding
+contrib/             # Runtime data (certs, config templates, web assets)
+teddycloud_web/      # React frontend (separate submodule)
+  src/pages/         # Route pages - thin, layout + composition only
+  src/components/    # Topic-specific UI (tonies/, tonieboxes/, settings/, community/)
+  src/api/apis/      # API client (TeddyCloudApi.ts - do NOT regenerate!)
+  src/contexts/      # React contexts (TeddyCloudContext, AudioContext)
+  src/hooks/         # Shared generic hooks only (useDebounce, useMediaQuery)
+  src/utils/         # Pure helper functions (validators, formatters)
+  src/constants/     # URLs (urls.ts), numbers, shared constants
 ```
 
 ## Build System
@@ -91,6 +94,7 @@ Handlers are registered in `request_paths[]` array in `server.c`:
 {REQ_POST, "/api/fileUpload", SERTY_WEB, &handleApiFileUpload},
 {REQ_GET, "/v1/content", SERTY_BOTH, &handleCloudContentV1},
 ```
+- `SERTY_WEB`: Web UI only, `SERTY_API`: Toniebox API only, `SERTY_BOTH`: Both
 
 ### Handler Signature
 ```c
@@ -99,11 +103,13 @@ error_t handleXxx(HttpConnection *connection, const char_t *uri,
 ```
 
 ### Settings Definition (in `src/settings.c`)
-Settings use macro-based declaration with `OPTION_*` macros:
+Settings use macro-based declaration with `OPTION_*` macros in `option_map_init()`:
 ```c
 OPTION_BOOL("cloud.enabled", &settings->cloud.enabled, TRUE, "Enable cloud", "...", LEVEL_BASIC)
 OPTION_STRING("core.contentdir", &settings->core.contentdir, "default", "Content dir", "...", LEVEL_DETAIL)
+OPTION_UNSIGNED("log.level", &settings->log.level, 4, 0, 6, "Loglevel", "0=off - 6=verbose", LEVEL_DETAIL)
 ```
+- Levels: `LEVEL_NONE`, `LEVEL_BASIC`, `LEVEL_DETAIL`, `LEVEL_EXPERT`, `LEVEL_SECRET`
 
 ### JSON Responses
 Use cJSON library for all JSON handling:
@@ -122,18 +128,19 @@ cJSON_Delete(json);
 
 ### Path Handling
 - Use `PATH_SEPARATOR` macro for cross-platform paths
-- `sanitizePath()` normalizes paths and prevents traversal
+- `sanitizePath()` in `handler_api.c` normalizes paths and prevents traversal
 - Paths stored in settings are relative, resolved via `settings->internal.*dirfull`
 
 ## Debugging
 - Set breakpoint on `__asan::ReportGenericError` to catch sanitizer errors
-- Log levels configured via `log.level` setting (0-6)
-- Use `TRACE_INFO`, `TRACE_DEBUG`, `TRACE_ERROR` macros for logging
+- Log levels configured via `log.level` setting (0=off to 6=verbose)
+- Use `TRACE_INFO`, `TRACE_DEBUG`, `TRACE_ERROR`, `TRACE_WARNING` macros for logging
 
 ## Protocol Buffers
 Proto files in `proto/` define Toniebox communication formats:
 - `toniebox.pb.taf-header.proto`: TAF audio file header
 - `toniebox.pb.rtnl.proto`: Real-time notification log format
+- `toniebox.pb.freshness-check.*.proto`: Content freshness protocol
 - Generated files go to `src/proto/` via `protoc-c`
 
 ## Testing
@@ -147,14 +154,17 @@ Proto files in `proto/` define Toniebox communication formats:
 1. **Error handling**: Return `error_t` (NO_ERROR on success), use `error2text()` for logging
 2. **String formatting**: Use `osSnprintf`, `osSprintf` (Cyclone wrappers)
 3. **Platform code**: Platform-specific code in `src/platform/platform_*.c`
-4. **Modified libraries**: Cyclone modifications live in `src/cyclone/` (not in `cyclone/` submodule)
+4. **Modified libraries**: Cyclone modifications live in `src/cyclone/` (NOT in `cyclone/` submodule)
+5. **Header pairing**: Each `src/*.c` has a matching `include/*.h`
 
 ### Frontend (React/TypeScript)
-1. **API Client**: Do NOT regenerate `TeddyCloudApi.ts` - it's manually maintained
-2. **Design Framework**: Always use AntD components, not custom HTML
-3. **Colors**: Use `token.*` from AntD theme (e.g., `token.colorTextDisabled`), never hardcoded colors
-4. **Translations**: Always use `t("...")` from react-i18next, never hardcoded strings
-5. **URLs**: Check/add URLs in `src/constants/urls.ts` before hardcoding
-6. **Hooks**: Feature-specific hooks stay in feature folder (e.g., `src/components/tonies/encoder/hooks/`)
-7. **Pages**: Keep thin - layout + composition only, no business logic
-8. **Changelog**: Update `CHANGELOG.md` for all changes
+1. **API Client**: Do NOT regenerate `TeddyCloudApi.ts` - it's manually maintained and listed in `.openapi-generator-ignore`
+2. **API Methods**: Use existing helpers (`apiGetTeddyCloudApiRaw`, `apiPostTeddyCloudRaw`, etc.) or add new ones to `TeddyCloudApi.ts`
+3. **Design Framework**: Always use AntD components, not custom HTML
+4. **Colors**: Use `token.*` from AntD theme (e.g., `token.colorTextDisabled`), never hardcoded colors
+5. **Translations**: Always use `t("...")` from react-i18next, never hardcoded strings. Add translations to EN/DE/FR/ES JSON files
+6. **URLs**: Check/add URLs in `src/constants/urls.ts` before hardcoding
+7. **Hooks**: Feature-specific hooks stay in feature folder (e.g., `src/components/tonies/encoder/hooks/`). Only generic hooks in `src/hooks/`
+8. **Pages**: Keep thin - layout + composition only, no business logic
+9. **Modals**: State controlled by parent, modal receives data via props
+10. **Changelog**: Update `teddycloud_web/CHANGELOG.md` for all frontend changes
