@@ -3571,10 +3571,10 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
         fsCreateDir(tempDir);
     }
 
-    /* Generate unique filename base */
+    /* Generate unique filename base - keep small to avoid truncation */
     time_t now = time(NULL);
-    char outputBase[256];
-    osSnprintf(outputBase, sizeof(outputBase), "url_fetch_%" PRIuTIME, now);
+    char outputBase[32];
+    osSnprintf(outputBase, sizeof(outputBase), "uf_%" PRIuTIME, now);
 
     /* Build yt-dlp command */
     char command[8192];
