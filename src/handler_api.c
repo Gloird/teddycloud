@@ -3432,7 +3432,7 @@ error_t handleApiUrlInfo(HttpConnection *connection, const char_t *uri, const ch
         return ERROR_OUT_OF_MEMORY;
     }
 
-    error = ytdlp_exec(command, output, 1024 * 64, false);
+    error = ytdlp_exec(command, output, 1024 * 256, false);
     if (error != NO_ERROR)
     {
         osFreeMem(output);
