@@ -47,10 +47,10 @@ jobs:
     with:
       system: "ubuntu"
       dockerfile: "DockerfileUbuntu"
-      platforms: '["linux/amd64", "linux/arm/v7", "linux/arm64/v8", "linux/ppc64le", "linux/s390x"]'
+      platforms: '["linux/amd64"]'
       primary_image: true
-      error_platforms: '["linux/s390x"]'
-      noasan_fallback_platforms: '["linux/arm/v7", "linux/arm64/v8", "linux/ppc64le"]'
+      error_platforms: '[]'
+      noasan_fallback_platforms: '[]'
       tcw_commit_hash: ${{ inputs.tcw_commit_hash }}
   # debian:
   #   needs: test_commit_hash
