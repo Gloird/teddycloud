@@ -3426,7 +3426,7 @@ error_t handleApiUrlInfo(HttpConnection *connection, const char_t *uri, const ch
 
     TRACE_INFO("Getting URL info: %s\r\n", url);
 
-    char *output = osAllocMem(1024 * 64); /* 64KB buffer for JSON */
+    char *output = osAllocMem(1024 * 256); /* 256KB buffer for JSON (increase to avoid truncation) */
     if (!output)
     {
         return ERROR_OUT_OF_MEMORY;
@@ -3449,10 +3449,12 @@ error_t handleApiUrlInfo(HttpConnection *connection, const char_t *uri, const ch
     }
 
     cJSON *info = ytdlp_parse_info(output);
-    osFreeMem(output);
 
     if (!info)
     {
+        TRACE_ERROR("Failed to parse yt-dlp output: %s\r\n", output);
+        osFreeMem(output);
+
         cJSON *resp = cJSON_CreateObject();
         cJSON_AddBoolToObject(resp, "success", false);
         cJSON_AddStringToObject(resp, "error", "Failed to parse URL info");
@@ -3464,6 +3466,8 @@ error_t handleApiUrlInfo(HttpConnection *connection, const char_t *uri, const ch
         cJSON_Delete(resp);
         return err;
     }
+
+    osFreeMem(output);
 
     /* Build response with relevant fields */
     cJSON *resp = cJSON_CreateObject();
