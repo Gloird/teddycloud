@@ -3450,24 +3450,110 @@ error_t handleApiUrlInfo(HttpConnection *connection, const char_t *uri, const ch
 
     cJSON *info = ytdlp_parse_info(output);
 
-    if (!info)
+    /* If parsing failed or output looks truncated, fall back to running yt-dlp
+       redirecting stdout to a temporary file and parse from disk. This avoids
+       problems with large JSON being truncated by the in-memory buffer. */
+    if (!info || osStrlen(output) >= (1024 * 256) - 1)
     {
-        TRACE_ERROR("Failed to parse yt-dlp output: %s\r\n", output);
+        TRACE_WARNING("yt-dlp output parse failed or truncated (len=%zu). Falling back to temp file.\r\n", osStrlen(output));
+
+        /* create temp filename */
+        char tmpfname[256];
+        unsigned int r = (unsigned int)rand();
+        osSnprintf(tmpfname, sizeof(tmpfname), "yt_dlp_out_%lu_%u.json", (unsigned long)time(NULL), r);
+
+#ifdef WIN32
+        char cmd2[8192];
+        osSnprintf(cmd2, sizeof(cmd2), "yt-dlp --dump-json --no-download --no-playlist \"%s\" > \"%s\" 2>NUL", url, tmpfname);
+#else
+        char cmd2[8192];
+        osSnprintf(cmd2, sizeof(cmd2), "yt-dlp --dump-json --no-download --no-playlist \"%s\" > \"%s\" 2>/dev/null", url, tmpfname);
+#endif
+
+        int rc = system(cmd2);
+
+        if (rc != 0)
+        {
+            TRACE_ERROR("yt-dlp (file) execution failed with rc=%d\r\n", rc);
+            osFreeMem(output);
+            cJSON *resp = cJSON_CreateObject();
+            cJSON_AddBoolToObject(resp, "success", false);
+            cJSON_AddStringToObject(resp, "error", "Failed to fetch URL info (yt-dlp failed)");
+            char *jsonStr = cJSON_PrintUnformatted(resp);
+            httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+            connection->response.statusCode = 400;
+            error_t err = httpWriteResponseString(connection, jsonStr, false);
+            osFreeMem(jsonStr);
+            cJSON_Delete(resp);
+            return err;
+        }
+
+        /* read file fully */
+        FILE *f = fopen(tmpfname, "rb");
+        if (!f)
+        {
+            TRACE_ERROR("Could not open yt-dlp temp file %s\r\n", tmpfname);
+            osFreeMem(output);
+            cJSON *resp = cJSON_CreateObject();
+            cJSON_AddBoolToObject(resp, "success", false);
+            cJSON_AddStringToObject(resp, "error", "Failed to read yt-dlp output file");
+            char *jsonStr = cJSON_PrintUnformatted(resp);
+            httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+            connection->response.statusCode = 500;
+            error_t err = httpWriteResponseString(connection, jsonStr, false);
+            osFreeMem(jsonStr);
+            cJSON_Delete(resp);
+            remove(tmpfname);
+            return err;
+        }
+
+        fseek(f, 0, SEEK_END);
+        long fsize = ftell(f);
+        fseek(f, 0, SEEK_SET);
+
+        char *filebuf = osAllocMem((size_t)fsize + 1);
+        if (!filebuf)
+        {
+            fclose(f);
+            remove(tmpfname);
+            osFreeMem(output);
+            return ERROR_OUT_OF_MEMORY;
+        }
+
+        size_t read = fread(filebuf, 1, (size_t)fsize, f);
+        filebuf[read] = '\0';
+        fclose(f);
+
+        /* attempt parse from file buffer */
+        if (info)
+            cJSON_Delete(info);
+        info = ytdlp_parse_info(filebuf);
+
+        remove(tmpfname);
+        osFreeMem(filebuf);
         osFreeMem(output);
 
-        cJSON *resp = cJSON_CreateObject();
-        cJSON_AddBoolToObject(resp, "success", false);
-        cJSON_AddStringToObject(resp, "error", "Failed to parse URL info");
-        char *jsonStr = cJSON_PrintUnformatted(resp);
-        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
-        connection->response.statusCode = 500;
-        error_t err = httpWriteResponseString(connection, jsonStr, false);
-        osFreeMem(jsonStr);
-        cJSON_Delete(resp);
-        return err;
-    }
+        if (!info)
+        {
+            TRACE_ERROR("Failed to parse yt-dlp JSON from temp file\r\n");
+            cJSON *resp = cJSON_CreateObject();
+            cJSON_AddBoolToObject(resp, "success", false);
+            cJSON_AddStringToObject(resp, "error", "Failed to parse URL info (fallback)");
+            char *jsonStr = cJSON_PrintUnformatted(resp);
+            httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+            connection->response.statusCode = 500;
+            error_t err = httpWriteResponseString(connection, jsonStr, false);
+            osFreeMem(jsonStr);
+            cJSON_Delete(resp);
+            return err;
+        }
 
-    osFreeMem(output);
+        /* success — info holds parsed JSON from file */
+    }
+    else
+    {
+        osFreeMem(output);
+    }
 
     /* Build response with relevant fields */
     cJSON *resp = cJSON_CreateObject();
