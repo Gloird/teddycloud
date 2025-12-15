@@ -3668,21 +3668,22 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
     char command[8192];
     char outputTemplate[512];
     osSnprintf(outputTemplate, sizeof(outputTemplate), "%s%cuf_%" PRIuTIME, tempDir, PATH_SEPARATOR, now);
-    char audioFormat[64] = "bestaudio";
+    /* Choose a format that falls back to the combined best if audio-only isn't available */
+    char audioFormat[64] = "bestaudio/best";
 
     /* Parse quality setting */
     if (osStrcmp(quality, "worst") == 0)
     {
-        osStrcpy(audioFormat, "worstaudio");
+        osStrcpy(audioFormat, "worstaudio/best");
     }
     else if (osStrcmp(quality, "best") == 0)
     {
-        osStrcpy(audioFormat, "bestaudio");
+        osStrcpy(audioFormat, "bestaudio/best");
     }
     else
     {
-        /* Assume it's a bitrate like "128", "192", "256", "320" */
-        osSnprintf(audioFormat, sizeof(audioFormat), "bestaudio[abr<=%s]", quality);
+        /* Assume it's a bitrate like "128", "192", "256", "320"; allow fallback to best */
+        osSnprintf(audioFormat, sizeof(audioFormat), "bestaudio[abr<=%s]/best", quality);
     }
 
 #ifdef WIN32
