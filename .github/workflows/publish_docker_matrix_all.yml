@@ -52,6 +52,49 @@ jobs:
       error_platforms: '[]'
       noasan_fallback_platforms: '[]'
       tcw_commit_hash: ${{ inputs.tcw_commit_hash }}
+
+  # Smoke test: build image locally and run a quick /api/urlInfo call to capture logs
+  ci_smoke:
+    needs: ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Build local Docker image
+        run: |
+          docker build -t teddycloud:local -f DockerfileUbuntu .
+
+      - name: Run container
+        run: |
+          docker run -d --name teddycloud_test -p 8080:8080 teddycloud:local || true
+          sleep 8
+
+      - name: Call /api/urlInfo (may fail)
+        run: |
+          curl -s -X POST "http://localhost:8080/api/urlInfo" -H "Content-Type: application/json" -d '{"url":"https://www.youtube.com/watch?v=HzRWSwimgVQ"}' -o response.json || true
+
+      - name: Dump container logs
+        run: |
+          docker logs teddycloud_test --since 1m > container_logs.txt || true
+          echo "--- RESPONSE ---"
+          cat response.json || true
+          echo "--- CONTAINER LOGS ---"
+          sed -n '1,200p' container_logs.txt || true
+
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: teddycloud-ci-logs
+          path: |
+            container_logs.txt
+            response.json
+
+      - name: Cleanup
+        run: |
+          docker rm -f teddycloud_test || true
   # debian:
   #   needs: test_commit_hash
   #   uses: ./.github/workflows/publish_docker_matrix_base.yml
