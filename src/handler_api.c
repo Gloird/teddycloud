@@ -3778,7 +3778,7 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
         }
 
         /* compute basename of output */
-        const char *lastSep = osStrrchr(output, PATH_SEPARATOR);
+        const char *lastSep = strrchr(output, PATH_SEPARATOR);
         const char *baseName = lastSep ? (lastSep + 1) : output;
 
         char *destPath = custom_asprintf("%s%c%s", destDir, PATH_SEPARATOR, baseName);
@@ -3802,7 +3802,7 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
         }
 
         /* Build content base path (without extension) and content JSON source */
-        char *dot = osStrrchr(destPath, '.');
+        char *dot = strrchr(destPath, '.');
         char *contentBase = NULL;
         if (dot)
         {
