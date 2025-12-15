@@ -3765,36 +3765,123 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
         return err;
     }
 
-    /* Get relative path for frontend */
-    const char *relPath = output;
-    if (osStrncmp(output, rootPath, osStrlen(rootPath)) == 0)
+    /* Move the downloaded file into the content directory and create a content JSON entry */
     {
-        relPath = output + osStrlen(rootPath);
-        if (relPath[0] == PATH_SEPARATOR)
-            relPath++;
+        settings_t *settings = client_ctx->settings;
+        time_t t = now;
+        char destDir[PATH_LEN];
+        osSnprintf(destDir, sizeof(destDir), "%s%cuf_%" PRIuTIME, settings->internal.contentdirfull, PATH_SEPARATOR, t);
+        /* create dest dir if needed */
+        if (!fsDirExists(destDir))
+        {
+            fsCreateDir(destDir);
+        }
+
+        /* compute basename of output */
+        const char *lastSep = osStrrchr(output, PATH_SEPARATOR);
+        const char *baseName = lastSep ? (lastSep + 1) : output;
+
+        char *destPath = custom_asprintf("%s%c%s", destDir, PATH_SEPARATOR, baseName);
+
+        error_t mv_err = fsMoveFile(output, destPath, false);
+        if (mv_err != NO_ERROR)
+        {
+            TRACE_ERROR("Failed to move downloaded file to content dir: %s -> %s (%s)\r\n", output, destPath, error2text(mv_err));
+            osFreeMem(output);
+            osFreeMem(destPath);
+            cJSON *resp = cJSON_CreateObject();
+            cJSON_AddBoolToObject(resp, "success", false);
+            cJSON_AddStringToObject(resp, "error", "Failed to move downloaded file into content directory");
+            char *jsonStr = cJSON_PrintUnformatted(resp);
+            httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+            connection->response.statusCode = 500;
+            error_t err = httpWriteResponseString(connection, jsonStr, false);
+            osFreeMem(jsonStr);
+            cJSON_Delete(resp);
+            return err;
+        }
+
+        /* Build content base path (without extension) and content JSON source */
+        char *dot = osStrrchr(destPath, '.');
+        char *contentBase = NULL;
+        if (dot)
+        {
+            size_t baseLen = (size_t)(dot - destPath);
+            contentBase = osAllocMem(baseLen + 1);
+            osMemcpy(contentBase, destPath, baseLen);
+            contentBase[baseLen] = '\0';
+        }
+        else
+        {
+            contentBase = strdup(destPath);
+        }
+
+        /* relative path under contentdir */
+        const char *contentRoot = settings->internal.contentdirfull;
+        const char *relPtr = destPath + osStrlen(contentRoot);
+        if (relPtr[0] == PATH_SEPARATOR)
+            relPtr++;
+
+        char *sourceSpecial = custom_asprintf("content://%s", relPtr);
+
+        contentJson_t content_json;
+        osMemset(&content_json, 0, sizeof(contentJson_t));
+        content_json.live = false;
+        content_json.nocloud = false;
+        content_json.source = sourceSpecial;
+        content_json.skip_seconds = 0;
+        content_json.cache = false;
+        content_json.cloud_ruid = NULL;
+        content_json.cloud_auth = NULL;
+        content_json.cloud_auth_len = 0;
+        content_json.cloud_override = false;
+        content_json.tonie_model = NULL;
+        content_json.hide = false;
+        content_json.claimed = false;
+
+        char *json_path = custom_asprintf("%s.json", contentBase);
+        error_t save_err = save_content_json(json_path, &content_json);
+        if (save_err != NO_ERROR)
+        {
+            TRACE_ERROR("Failed to save content json for %s: %s\r\n", json_path, error2text(save_err));
+        }
+        osFreeMem(json_path);
+        free_content_json(&content_json);
+
+        /* prepare return paths */
+        const char *relPath = destPath;
+        if (osStrncmp(destPath, rootPath, osStrlen(rootPath)) == 0)
+        {
+            relPath = destPath + osStrlen(rootPath);
+            if (relPath[0] == PATH_SEPARATOR)
+                relPath++;
+        }
+
+        /* Send SSE completion event */
+        if (osStrlen(fetchId) > 0)
+        {
+            char sseData[1024];
+            osSnprintf(sseData, sizeof(sseData),
+                       "{\"fetchId\":\"%s\",\"status\":\"complete\",\"progress\":100,\"filePath\":\"%s\"}",
+                       fetchId, destPath);
+            sse_sendEvent("url-fetch-progress", sseData, false);
+        }
+
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", true);
+        cJSON_AddStringToObject(resp, "filePath", destPath);
+        cJSON_AddStringToObject(resp, "relativePath", relPath);
+
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        osFreeMem(destPath);
+        if (contentBase)
+            osFreeMem(contentBase);
+
+        cJSON_Delete(resp);
+
+        return err;
     }
-
-    /* Send SSE completion event */
-    if (osStrlen(fetchId) > 0)
-    {
-        char sseData[1024];
-        osSnprintf(sseData, sizeof(sseData),
-                   "{\"fetchId\":\"%s\",\"status\":\"complete\",\"progress\":100,\"filePath\":\"%s\"}",
-                   fetchId, output);
-        sse_sendEvent("url-fetch-progress", sseData, false);
-    }
-
-    cJSON *resp = cJSON_CreateObject();
-    cJSON_AddBoolToObject(resp, "success", true);
-    cJSON_AddStringToObject(resp, "filePath", output);
-    cJSON_AddStringToObject(resp, "relativePath", relPath);
-
-    char *jsonStr = cJSON_PrintUnformatted(resp);
-    httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
-    error_t err = httpWriteResponseString(connection, jsonStr, false);
-    osFreeMem(jsonStr);
-    osFreeMem(output);
-    cJSON_Delete(resp);
-
-    return err;
 }
