@@ -134,6 +134,9 @@ jobs:
           build-args: |
             ${{ steps.set_build_args.outputs.build_args }}
             TEDDYCLOUD_VERSION=${{ steps.matrix_meta.outputs.version }}
+          # show full build logs for better diagnostics
+          progress: plain
+          pull: true
 
       - name: Platform name strip for filename
         id: platform_strip
@@ -176,6 +179,8 @@ jobs:
           build-args: |
             ${{ steps.set_build_args.outputs.build_args }}
             TEDDYCLOUD_VERSION=${{ steps.matrix_meta.outputs.version }}
+          progress: plain
+          pull: true
 
       - name: Upload digest
         if: ${{ steps.docker-test.outcome == 'success' }}
