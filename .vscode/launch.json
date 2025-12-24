@@ -1,0 +1,180 @@
+{
+    "configurations": [
+        {
+            "name": "[linux] teddyCloud",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/teddycloud",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/",
+            "environment": [],
+            "externalConsole": false,
+            "preLaunchTask": "build",
+            "linux": {
+                "MIMode": "gdb",
+            },
+        },
+        {
+            "name": "[linux] TAF Encoder Test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/wasm/taf_encoder_test",
+            "args": [
+                "input.raw",
+                "output.taf"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/wasm",
+            "environment": [],
+            "externalConsole": false,
+            "preLaunchTask": "build_taf_encoder_test",
+            "linux": {
+                "MIMode": "gdb"
+            }
+        },
+        {
+            "name": "[linux] teddyCloud Settings Port Test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/teddycloud",
+            "args": [
+                "--config-set",
+                "core.server.http_port=90,core.server.https_web_port=9443"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/",
+            "environment": [],
+            "externalConsole": false,
+            "preLaunchTask": "build",
+            "linux": {
+                "MIMode": "gdb",
+            },
+        },
+        {
+            "name": "[linux] teddyCloud Time Test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/teddycloud",
+            "args": [
+                "--cloud-test",
+                "/v1/time"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/",
+            "environment": [],
+            "externalConsole": false,
+            "preLaunchTask": "build",
+            "linux": {
+                "MIMode": "gdb",
+            },
+        },
+        {
+            "name": "[linux] teddyCloud encode test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/teddycloud",
+            "args": [
+                "--encode",
+                "data/library/test-encode.taf",
+                "https://download.samplelib.com/mp3/sample-15s.mp3",
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/",
+            "environment": [],
+            "externalConsole": false,
+            "preLaunchTask": "build",
+            "linux": {
+                "MIMode": "gdb",
+            },
+        },
+        {
+            "name": "[linux] teddyCloud encode test multi file",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/teddycloud",
+            "args": [
+                "--encode",
+                "data/library/test-encode.taf",
+                "--skip-seconds",
+                "2",
+                "https://download.samplelib.com/mp3/sample-15s.mp3",
+                "https://download.samplelib.com/mp3/sample-15s.mp3"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/",
+            "environment": [],
+            "externalConsole": false,
+            "preLaunchTask": "build",
+            "linux": {
+                "MIMode": "gdb",
+            },
+        },
+        {
+            "name": "[wsl] teddyCloud",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "bin/teddycloud",
+            "args": [],
+            "cwd": ".",
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "pipeTransport": {
+                "pipeProgram": "wsl",
+                "pipeArgs": [
+                    "--cd",
+                    "${workspaceFolder}",
+                    "-e",
+                    "bash",
+                    "-c"
+                ]
+            },
+            "preLaunchTask": "[wsl] build",
+            "logging": {
+                "programOutput": true,
+                "engineLogging": true,
+                "trace": false,
+                "traceResponse": false,
+                "exceptions": false
+            }
+        },
+        {
+            "name": "[win32] teddyCloud",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/teddycloud.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/",
+            "environment": [],
+            "externalConsole": true,
+            "preLaunchTask": "[win32] build"
+        },
+        {
+            "name": "Python: Fake Server",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/fake-server/server.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Fake Server with profiler",
+            "type": "python",
+            "request": "launch",
+            "module": "cProfile",
+            "args": [
+                "-o",
+                "${workspaceFolder}/fake-server/server.py.prof",
+                "${workspaceFolder}/fake-server/server.py"
+            ],
+            "justMyCode": true
+        }
+    ]
+}
