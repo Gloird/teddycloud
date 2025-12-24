@@ -47,7 +47,7 @@ jobs:
     with:
       system: "ubuntu"
       dockerfile: "DockerfileUbuntu"
-      platforms: '["linux/amd64"]'
+      platforms: '["linux/amd64","linux/arm64/v8"]'
       primary_image: true
       error_platforms: '[]'
       noasan_fallback_platforms: '[]'

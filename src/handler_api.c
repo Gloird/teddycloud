@@ -3667,6 +3667,7 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
     /* Build yt-dlp command */
     char command[8192];
     char outputTemplate[512];
+    char stderrFile[512];
     osSnprintf(outputTemplate, sizeof(outputTemplate), "%s%cuf_%" PRIuTIME, tempDir, PATH_SEPARATOR, now);
     /* Choose a format that falls back to the combined best if audio-only isn't available */
     char audioFormat[64] = "bestaudio/best";
@@ -3686,16 +3687,19 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
         osSnprintf(audioFormat, sizeof(audioFormat), "bestaudio[abr<=%s]/best", quality);
     }
 
+    /* stderr file for diagnostic when yt-dlp fails */
+    osSnprintf(stderrFile, sizeof(stderrFile), "%s%cuf_%" PRIuTIME ".stderr", tempDir, PATH_SEPARATOR, now);
+
 #ifdef WIN32
     osSnprintf(command, sizeof(command),
                "yt-dlp -f \"%s\" --extract-audio --audio-format mp3 --audio-quality 0 "
-               "--no-playlist -o \"%s.%%(ext)s\" --print after_move:filepath \"%s\" 2>NUL",
-               audioFormat, outputTemplate, url);
+               "--no-playlist -o \"%s.%%(ext)s\" --print after_move:filepath \"%s\" 2> \"%s\"",
+               audioFormat, outputTemplate, url, stderrFile);
 #else
     osSnprintf(command, sizeof(command),
                "yt-dlp -f \"%s\" --extract-audio --audio-format mp3 --audio-quality 0 "
-               "--no-playlist -o \"%s.%%(ext)s\" --print after_move:filepath \"%s\" 2>/dev/null",
-               audioFormat, outputTemplate, url);
+               "--no-playlist -o \"%s.%%(ext)s\" --print after_move:filepath \"%s\" 2>\"%s\"",
+               audioFormat, outputTemplate, url, stderrFile);
 #endif
 
     TRACE_INFO("Fetching URL: %s\r\n", url);
@@ -3783,6 +3787,34 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
         const char *baseName = lastSep ? (lastSep + 1) : output;
 
         char *destPath = custom_asprintf("%s%c%s", destDir, PATH_SEPARATOR, baseName);
+
+        /* if yt-dlp failed, read stderr file for diagnostics (ytdlp_exec logs exit status already) */
+        if (!fsFileExists(output))
+        {
+            FILE *ef = fopen(stderrFile, "r");
+            if (ef)
+            {
+                char buf[1024];
+                TRACE_ERROR("yt-dlp stderr (begin)\r\n");
+                while (fgets(buf, sizeof(buf), ef))
+                {
+                    TRACE_ERROR("%s", buf);
+                }
+                TRACE_ERROR("yt-dlp stderr (end)\r\n");
+                fclose(ef);
+            }
+            osFreeMem(output);
+            cJSON *resp = cJSON_CreateObject();
+            cJSON_AddBoolToObject(resp, "success", false);
+            cJSON_AddStringToObject(resp, "error", "yt-dlp failed to produce output file (see server logs)");
+            char *jsonStr = cJSON_PrintUnformatted(resp);
+            httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+            connection->response.statusCode = 500;
+            error_t err = httpWriteResponseString(connection, jsonStr, false);
+            osFreeMem(jsonStr);
+            cJSON_Delete(resp);
+            return err;
+        }
 
         error_t mv_err = fsMoveFile(output, destPath, false);
         if (mv_err != NO_ERROR)
