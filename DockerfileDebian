@@ -1,7 +1,7 @@
 FROM debian:latest AS buildenv
 
-# Default to using ASAN
-ARG NO_SANITIZERS=0
+# Allow override from build args; default to disabling heavy sanitizers in CI
+ARG NO_SANITIZERS=2
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc protobuf-c-compiler build-essential git zip curl

@@ -4,11 +4,10 @@
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
-
 #define BUILD_NAME "TeddyCloud"
 
 #ifndef BUILD_VERSION
-#define BUILD_VERSION \"v0.2.0"
+#define BUILD_VERSION \"v0.3.0"
 #endif
 
 #ifndef BUILD_GIT_SHORT_SHA
@@ -43,7 +42,7 @@
 #define WEB_NAME "TeddyCloud Web"
 
 #ifndef WEB_VERSION
-#define WEB_VERSION \"v0.2.0"
+#define WEB_VERSION \"v0.3.0"
 #endif
 
 #ifndef WEB_GIT_SHORT_SHA

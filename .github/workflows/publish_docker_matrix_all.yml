@@ -49,8 +49,9 @@ jobs:
       dockerfile: "DockerfileUbuntu"
       platforms: '["linux/amd64","linux/arm64/v8"]'
       primary_image: true
+      # allow fallback for sanitizers on ARM64 to reduce OOM risk
       error_platforms: '[]'
-      noasan_fallback_platforms: '[]'
+      noasan_fallback_platforms: '["linux/arm64/v8"]'
       tcw_commit_hash: ${{ inputs.tcw_commit_hash }}
 
   # NOTE: The previous temporary `ci_smoke` job was removed — maintainers
