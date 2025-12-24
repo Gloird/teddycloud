@@ -1,6 +1,6 @@
 
 
-#include <errno.h>     // for error_t
+#include <errno.h>     // pour error_t
 #include <stdint.h>    // for uint8_t
 #include <stdio.h>     // for printf
 #include <stdlib.h>    // for atoi, exit, free
@@ -68,6 +68,16 @@
 #include "toniesJson.h"           // for tonieboxes_update, tonies_deinit
 
 #define APP_HTTP_MAX_CONNECTIONS 32
+/*
+ * server.c
+ * ----------
+ * Ce fichier contient la table des routes HTTP/HTTPS exposées par TeddyCloud
+ * et quelques fonctions d'aide pour la gestion des endpoints internes.
+ *
+ * Les commentaires ajoutés ci-dessous sont en français et expliquent le rôle
+ * des structures, énumérations et fonctions principales pour faciliter la
+ * compréhension du code par des contributeurs francophones.
+ */
 HttpConnection httpConnections[APP_HTTP_MAX_CONNECTIONS];
 HttpConnection httpsWebConnections[APP_HTTP_MAX_CONNECTIONS];
 HttpConnection httpsApiConnections[APP_HTTP_MAX_CONNECTIONS];
@@ -174,12 +184,21 @@ request_type_t request_paths[] = {
 
 error_t handleCacheDownload(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx)
 {
-    /* guerilla-style stats page for internal tests, to be removed when web ui is finished */
+    /*
+     * Page de statistiques de cache (usage interne / tests).
+     *
+     * Cette route renvoie une page HTML simple affichant des statistiques
+     * sur le cache d'images/local. Elle est principalement destinée aux
+     * tests et à la validation manuelle pendant le développement de la
+     * partie Web. Peut être supprimée lorsque l'interface web finale est en
+     * place.
+     */
     if (osStrcmp(uri, "/cache/stats.html") == 0)
     {
         cache_stats_t stats;
         cache_stats(&stats);
 
+        /* Construction d'une page statique envoyée au client. */
         char stats_page[4096];
         snprintf(stats_page, sizeof(stats_page),
                  "<!DOCTYPE html>"
@@ -234,6 +253,7 @@ error_t handleCacheDownload(HttpConnection *connection, const char_t *uri, const
                  stats.total_size,
                  stats.memory_used);
 
+        /* Préparer l'entête HTTP puis écrire la réponse HTML complète. */
         httpPrepareHeader(connection, "text/html; charset=utf-8", osStrlen(stats_page));
         return httpWriteResponseString(connection, stats_page, false);
     }

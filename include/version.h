@@ -4,7 +4,6 @@
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
-
 #define BUILD_NAME "TeddyCloud"
 
 #ifndef BUILD_VERSION
