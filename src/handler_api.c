@@ -11,6 +11,9 @@
 #include "server_helpers.h"
 #include "fs_port.h"
 #include "handler.h"
+
+/* reference to open requests counter defined in server.c */
+extern size_t openRequestsLast;
 #include "handler_api.h"
 #include "handler_cloud.h"
 #include "settings.h"
