@@ -1,0 +1,49 @@
+name: Auto bump minor version
+
+on:
+  push:
+    branches:
+      - develop
+      - develop-gloird
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get last commit message
+        id: lastmsg
+        run: |
+          echo "LAST_MSG=$(git log -1 --pretty=%B)" >> $GITHUB_ENV
+
+      - name: Exit if last commit is a version-bump
+        run: |
+          if echo "$LAST_MSG" | grep -q "\[version-bump\]"; then
+            echo "Last commit is a version-bump; skipping."
+            exit 0
+          fi
+
+      - name: Run bump script
+        run: |
+          python3 tools/bump_version.py
+
+      - name: Commit and push bumped version
+        run: |
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add include/version.h
+            NEWVER=$(grep -oP 'BUILD_VERSION "\\Kv\\d+\\.\\d+\\.\\d+' include/version.h)
+            git commit -m "chore: bump minor version to ${NEWVER} [version-bump]"
+            git push origin HEAD
+          else
+            echo "No version changes"
+          fi

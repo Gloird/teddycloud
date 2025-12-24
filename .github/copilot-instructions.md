@@ -168,3 +168,14 @@ Proto files in `proto/` define Toniebox communication formats:
 8. **Pages**: Keep thin - layout + composition only, no business logic
 9. **Modals**: State controlled by parent, modal receives data via props
 10. **Changelog**: Update `teddycloud_web/CHANGELOG.md` for all frontend changes
+
+## Maintenance / Copilot-specific instructions
+
+- Lorsque vous apportez des modifications affectant l'utilisateur ou l'API, mettez systématiquement à jour les fichiers de documentation suivants :
+  - `README.md` (version française) et `README.en.md` (version anglaise). Les deux doivent rester synchronisés pour les sections visibles par les utilisateurs.
+  - `CHANGELOG.md` : ajouter une entrée dans la section `Unreleased` décrivant brièvement les changements.
+
+- Pour toute modification de code ou de comportement, documentez l'impact dans `README.md` (FR) et `README.en.md` (EN) avant de committer.
+
+- Les messages de commit générés automatiquement par des workflows pour incrémenter la version contiendront le tag `[version-bump]` afin d'éviter des boucles de CI.
+

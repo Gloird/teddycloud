@@ -1,6 +1,9 @@
 
 # TeddyCloud
 
+> Fork du projet original: [toniebox-reverse-engineering/teddycloud](https://github.com/toniebox-reverse-engineering/teddycloud)
+
+
 ## Fonctionnalités
 TeddyCloud est un serveur alternatif pour votre Toniebox, permettant d'héberger les services cloud localement.
 Cela vous donne le contrôle sur les données envoyées au cloud du fabricant et permet d'héberger vos propres fichiers audio de figurines, par exemple sur un NAS ou tout autre serveur.
