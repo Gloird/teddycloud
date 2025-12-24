@@ -3918,3 +3918,22 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
         return err;
     }
 }
+
+error_t handleApiMetrics(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx)
+{
+    char metrics[512];
+    time_t now = time(NULL);
+
+    osSprintf(metrics,
+              "# HELP teddycloud_open_requests Number of open requests\n"
+              "# TYPE teddycloud_open_requests gauge\n"
+              "teddycloud_open_requests %" PRIuSIZE "\n"
+              "# HELP teddycloud_time_seconds Current epoch seconds\n"
+              "# TYPE teddycloud_time_seconds gauge\n"
+              "teddycloud_time_seconds %ld\n",
+              openRequestsLast,
+              (long)now);
+
+    httpPrepareHeader(connection, "text/plain; charset=utf-8", osStrlen(metrics));
+    return httpWriteResponseString(connection, metrics, false);
+}

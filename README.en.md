@@ -23,6 +23,10 @@ Currently implemented are:
 * Home Assistant integration (MQTT)
 * [Web frontend](https://github.com/toniebox-reverse-engineering/teddycloud_web) (full stack developers welcome)
 
+[![Codecov](https://codecov.io/gh/Gloird/teddycloud/branch/main/graph/badge.svg)](https://codecov.io/gh/Gloird/teddycloud)
+
+If your repository is private, add the `CODECOV_TOKEN` secret in GitHub to allow coverage uploads from CI.
+
 ## Planned
 * teddyBench integration
 

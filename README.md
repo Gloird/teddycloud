@@ -3,6 +3,10 @@
 
 > Fork du projet original: [toniebox-reverse-engineering/teddycloud](https://github.com/toniebox-reverse-engineering/teddycloud)
 
+[![Codecov](https://codecov.io/gh/Gloird/teddycloud/branch/main/graph/badge.svg)](https://codecov.io/gh/Gloird/teddycloud)
+
+Si votre dépôt est privé, ajoutez le secret `CODECOV_TOKEN` dans les secrets GitHub pour permettre le téléversement des rapports de couverture depuis la CI.
+
 
 ## Fonctionnalités
 TeddyCloud est un serveur alternatif pour votre Toniebox, permettant d'héberger les services cloud localement.

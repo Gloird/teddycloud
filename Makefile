@@ -717,3 +717,10 @@ cppcheck:
 	$(QUIET)$(ECHO)  "[ ${CYAN}CHK${NC} ] Running cppcheck"
 	cppcheck -j6 --enable=all --inconclusive --std=c99 --language=c --platform=unspecified --report-progress --suppress=missingIncludeSystem --xml --output-file=cppcheck.xml $(wildcard $(SRC_DIR)/*.c) $(INCLUDES) -D GPL_LICENSE_TERMS_ACCEPTED -D TRACE_NOPATH_FILE
 	cppcheck-htmlreport --file=cppcheck.xml --report-dir=cppcheck
+
+.PHONY: dev
+dev:
+	$(QUIET)$(ECHO) '[ ${GREEN}DEV${NC} ] Development quickstart'
+	$(QUIET)$(ECHO) '1) In a terminal run: make build OPTI_LEVEL=-Og'
+	$(QUIET)$(ECHO) '2) In another terminal run: cd teddycloud_web && npm start'
+	$(QUIET)$(ECHO) 'See README.md for details'

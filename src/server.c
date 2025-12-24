@@ -160,6 +160,7 @@ request_type_t request_paths[] = {
     {REQ_POST, "/api/migrateContent2Lib", SERTY_WEB, &handleApiMigrateContent2Lib},
     {REQ_POST, "/api/cacheFlush", SERTY_WEB, &handleApiCacheFlush},
     {REQ_GET, "/api/cacheStats", SERTY_WEB, &handleApiCacheStats},
+    {REQ_GET, "/metrics", SERTY_BOTH, &handleApiMetrics},
     {REQ_GET, "/api/sse", SERTY_WEB, &handleApiSse},
     {REQ_GET, "/robots.txt", SERTY_WEB, &handleSecMitRobotsTxt},
     /* official tonies API */
