@@ -37,12 +37,13 @@ jobs:
 
       - name: Commit and push bumped version
         run: |
-          if ! git diff --quiet; then
+          # Use git status --porcelain to detect changes (portable)
+          if [ -n "$(git status --porcelain)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add include/version.h
-            NEWVER=$(grep -oP 'BUILD_VERSION "\\Kv\\d+\\.\\d+\\.\\d+' include/version.h)
-            git commit -m "chore: bump minor version to ${NEWVER} [version-bump]"
+            git add include/version.h || true
+            NEWVER=$(grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' include/version.h | head -n1)
+            git commit -m "chore: bump minor version to ${NEWVER} [version-bump]" || echo "No commit needed"
             git push origin HEAD
           else
             echo "No version changes"
