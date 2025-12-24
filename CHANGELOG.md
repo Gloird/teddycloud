@@ -1,22 +1,26 @@
-# Changelog
+- Changelog
 
-All notable changes to this project will be documented in this file.
+Toutes les modifications notables de ce projet sont documentées dans ce fichier.
 
 ## Unreleased
 
-### Added
-- URL handling APIs for metadata retrieval and audio fetching.
-- Docker images: added Python3 and `yt-dlp` for enhanced audio download/processing.
-- CI: smoke test to build and validate Docker image functionality.
-- Support for multi-architecture Docker builds (linux/arm64 alongside linux/amd64).
+### Ajoutées
+- APIs de gestion d'URL pour la récupération de métadonnées et le téléchargement audio.
+- Images Docker : ajout de Python3 et de `yt-dlp` pour améliorer le téléchargement et le traitement audio.
+- CI : test smoke pour construire et valider le fonctionnement des images Docker.
+- Support des builds Docker multi-architectures (`linux/arm64` en complément de `linux/amd64`).
 
-### Changed
-- Dockerfiles updated to install `yt-dlp` directly and build the frontend inside the Docker image.
-- Submodule handling for `teddycloud_web` improved; CI checks sync the submodule branch with the parent.
+### Changées
+- Dockerfiles mis à jour pour installer `yt-dlp` directement et construire le frontend dans l'image.
+- Gestion du sous-module `teddycloud_web` améliorée : synchronisation de branche dans les workflows CI.
 
-### Fixed
-- Prevent JSON and buffer truncation in `handleApiUrlFetch` and related code paths; increased buffer sizes.
-- Improve audio format selection with a fallback to best quality when needed.
+### Corrigées
+- Éviter la troncation JSON / sortie dans `handleApiUrlFetch` et chemins associés ; augmentation des tailles des buffers.
+- Amélioration de la sélection du format audio pour permettre un fallback vers la meilleure qualité disponible.
+
+---
+
+Les notes de version seront ajoutées ici pour les futures releases.
 
 ---
 

@@ -1,64 +1,64 @@
+
 # TeddyCloud
 
-## Features
-TeddyCloud is an alternative server for your Toniebox, allowing you to host the cloud services locally.
-This gives you the control about which data is sent to the original manufacturer's cloud and allows you
-to host your own figurine audio files on e.g. your NAS or any other server.
+## Fonctionnalités
+TeddyCloud est un serveur alternatif pour votre Toniebox, permettant d'héberger les services cloud localement.
+Cela vous donne le contrôle sur les données envoyées au cloud du fabricant et permet d'héberger vos propres fichiers audio de figurines, par exemple sur un NAS ou tout autre serveur.
 
-Currently implemented are:
-* Provide audio content over the air
-* Cache original tonie audio content
-* Simulate live content (.live)
-* Passthrough original tonie audio content
-* Convert any audio file to a tonie audio file (web)
-* On-the-fly convert audio streams via ffmpeg for webradio and streams
-* Basic Web fronted
-* Filter custom tags to prevent deletion (.nocloud)
-* Configure maximum volume for speaker and headphones
-* Configure LED
-* Configure slapping
-* Customize original box sounds (ex. jingle) over the air
-* Extract/Inject certitifcates on a esp32 firmware dump
-* Decode RTNL logs
-* MQTT client
-* Home Assistant integration (MQTT)
-* [Web frontend](https://github.com/toniebox-reverse-engineering/teddycloud_web) (full stack developers welcome)
+Fonctionnalités actuellement implémentées :
+- Fournir du contenu audio en over-the-air
+- Mettre en cache le contenu audio original des Tonies
+- Simuler du contenu en direct (.live)
+- Réacheminement (passthrough) du contenu audio original
+- Conversion de n'importe quel fichier audio en fichier Tonie (web)
+- Conversion à la volée des flux audio via ffmpeg (webradio, streams)
+- Interface Web basique
+- Filtrage des tags personnalisés pour empêcher la suppression (.nocloud)
+- Configuration du volume maximal pour haut-parleur et casque
+- Configuration des LEDs
+- Configuration du "slapping"
+- Personnalisation des sons originaux de la box (ex. jingle) via OTA
+- Extraction/injection de certificats sur un dump de firmware ESP32
+- Décodage des logs RTNL
+- Client MQTT
+- Intégration Home Assistant (MQTT)
+- Interface Web : https://github.com/toniebox-reverse-engineering/teddycloud_web (contributeurs full-stack bienvenus)
 
-## Planned
-* teddyBench integration
+## À venir
+- Intégration teddyBench
 
-## Where to start?
-If you want to get started, please follow our [guide on our website](https://toniebox-reverse-engineering.github.io/docs/tools/teddycloud/).
+## Où commencer ?
+Pour démarrer, suivez notre guide sur le site : https://toniebox-reverse-engineering.github.io/docs/tools/teddycloud/.
 
-## Development and bulding
-Please use the [develop](tree/develop) for your development and pull requests. Stable builds are available from the master branch. Don't forget to clone the submodules with --recurse-submodules.
-To catch sanitizer in you IDE set a breakpoint on `__asan::ReportGenericError`. 
+## Développement et compilation
+Utilisez la branche `develop` pour vos développements et pull requests. Les builds stables sont disponibles sur la branche `master`. N'oubliez pas de cloner les sous-modules avec `--recurse-submodules`.
+Pour attraper les erreurs d'AddressSanitizer dans votre IDE, placez un breakpoint sur `__asan::ReportGenericError`.
 
-## Recent changes
-The CI and Docker publishing workflows were extended to support multi-architecture builds.
+## Modifications récentes
+Les workflows CI et de publication Docker ont été étendus pour supporter les builds multi-architectures.
 
-- GitHub Actions now builds and publishes images for `linux/arm64` in addition to `linux/amd64`.
-- The Docker workflows use `docker/setup-qemu-action` and `docker/setup-buildx-action` for cross-building and testing.
+- GitHub Actions construit et publie désormais des images pour `linux/arm64` en plus de `linux/amd64`.
+- Les workflows Docker utilisent `docker/setup-qemu-action` et `docker/setup-buildx-action` pour le cross-build et les tests.
 
-These changes ensure official images are available for ARM64-based hosts (Raspberry Pi 64-bit, cloud ARM instances, etc.).
+Ces changements permettent d'avoir des images officielles pour des hôtes ARM64 (Raspberry Pi 64-bit, instances ARM cloud, etc.).
 
-Other notable recent updates (summary of recent commits):
+Autres évolutions récentes (résumé des commits) :
 
-- Added URL handling APIs to fetch metadata and download audio content via the web API.
-- Docker images now include Python3 and `yt-dlp`; Dockerfiles were updated to install `yt-dlp` directly.
-- The Docker build now includes `nodejs` and builds the web frontend inside the image for CI/preview purposes.
-- Added a CI smoke test to validate Docker images after build and test cross-architecture support.
-- Improved handling for the `teddycloud_web` submodule: workflows now attempt to checkout the matching branch.
-- Multiple fixes to prevent JSON/output truncation in `handleApiUrlFetch` and increased temp buffer sizes.
-- Audio format selection logic enhanced to allow fallback to best quality.
+- Ajout d'APIs pour la gestion d'URL permettant la récupération de métadonnées et le téléchargement audio.
+- Images Docker : ajout de Python3 et `yt-dlp`; les Dockerfiles ont été mis à jour pour installer `yt-dlp` directement.
+- Le build Docker inclut maintenant `nodejs` et construit le frontend web dans l'image pour les besoins du CI/preview.
+- Ajout d'un test smoke CI pour valider les images Docker après build et tester le support cross-architecture.
+- Meilleure gestion du sous-module `teddycloud_web` : les workflows tentent maintenant de checkout la branche correspondante.
+- Corrections pour éviter la troncation JSON/sortie dans `handleApiUrlFetch` et augmentation des tailles de buffers temporaires.
+- Amélioration de la sélection des formats audio pour permettre un fallback sur la meilleure qualité.
 
-See `CHANGELOG.md` for a concise list of Unreleased changes.
+Consultez `CHANGELOG.md` pour la liste complète des changements non publiés.
 
 ## Attribution
-The icons used are from here:
-* img_empty.png: https://www.flaticon.com/free-icon/ask_1372671
-* img_unknown.png: https://www.flaticon.com/free-icon/ask_1923795
-* img_custom.png/favicon.ico: https://www.flaticon.com/free-icon/dog_2829818
+Les icônes utilisées proviennent de :
+- img_empty.png : https://www.flaticon.com/free-icon/ask_1372671
+- img_unknown.png : https://www.flaticon.com/free-icon/ask_1923795
+- img_custom.png/favicon.ico : https://www.flaticon.com/free-icon/dog_2829818
 
-Thanks for the original authors for these great icons.
+Merci aux auteurs originaux pour ces icônes.
 
