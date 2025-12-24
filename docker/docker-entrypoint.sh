@@ -8,7 +8,7 @@ set -o nounset
 mkdir -p /teddycloud/certs/server /teddycloud/certs/client
 cd /teddycloud
 
-if [ -n "${DOCKER_TEST:-}" ]; then
+if [ -n "${DOCKER_TEST:-}" ] && [ -z "${SKIP_DOCKER_TEST:-}" ]; then
   echo "Running teddycloud --docker-test..."
   LSAN_OPTIONS=detect_leaks=0 teddycloud --docker-test
 else

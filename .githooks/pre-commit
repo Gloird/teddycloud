@@ -1,0 +1,24 @@
+#!/bin/sh
+# Pre-commit hook: run version bump script and stage include/version.h if updated
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+if [ -z "$REPO_ROOT" ]; then
+  exit 0
+fi
+
+cd "$REPO_ROOT"
+
+if command -v python3 >/dev/null 2>&1; then
+  python3 tools/bump_version.py || true
+else
+  echo "python3 not found; skipping version bump"
+  exit 0
+fi
+
+# If include/version.h changed, stage it so it is included in the commit
+if git diff --name-only --staged | grep -q "include/version.h" || git diff --name-only | grep -q "include/version.h"; then
+  git add include/version.h || true
+fi
+
+exit 0

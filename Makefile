@@ -497,6 +497,12 @@ else
 endif
 
 all: check_dependencies submodules web build 
+ 
+.PHONY: enable-githooks
+enable-githooks:
+	@echo "Enabling repo git hooks from .githooks directory"
+	@git config core.hooksPath .githooks
+	@echo "Hooks enabled (git config core.hooksPath .githooks)"
 
 echo_info:
 	$(QUIET)$(ECHO) '[ ${GREEN}PLAT${NC} ] ${CYAN}$(build_platform)${NC}'

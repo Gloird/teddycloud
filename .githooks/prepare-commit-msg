@@ -1,0 +1,24 @@
+#!/bin/sh
+# prepare-commit-msg hook: if include/version.h is staged (or will be), append [version-bump] to message
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+MSG_FILE="$1"
+COMMIT_SOURCE="$2"
+
+# Only act for non-merge commits and when the message file exists
+if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
+  exit 0
+fi
+
+# Check if version file is staged to be committed
+if git diff --name-only --staged | grep -q "include/version.h"; then
+  # Append the token if not already present
+  if ! grep -q "\[version-bump\]" "$MSG_FILE"; then
+    printf "\n[version-bump]" >> "$MSG_FILE"
+  fi
+fi
+
+exit 0

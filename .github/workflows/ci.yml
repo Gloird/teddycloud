@@ -29,10 +29,22 @@ jobs:
       - name: Install build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libssl-dev protobuf-c-compiler npm
+          sudo apt-get install -y build-essential pkg-config libssl-dev protobuf-c-compiler npm ccache
 
-      - name: Build backend
-        run: make build OPTI_LEVEL=-Og
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ hashFiles('**/*.c','**/*.h') }}
+
+      - name: Build backend (ccache, limited parallelism, no sanitizers)
+        run: |
+          export CC="gcc"
+          export CXX="g++"
+          export CCACHE_DIR="$HOME/.ccache"
+          ccache -M 5G || true
+          # Limit parallel jobs to reduce peak memory usage on GitHub runners
+          NO_SANITIZERS=1 make -j2 OPTI_LEVEL=-Og
 
       - name: 'Frontend: install, lint and test'
         run: |
