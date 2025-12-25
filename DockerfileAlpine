@@ -38,7 +38,8 @@ RUN apk update && apk --no-cache add \
 
 RUN python3 -m pip install --upgrade pip setuptools wheel || true
 
-RUN pip3 install --no-cache-dir yt-dlp
+# Prefer Alpine package when available; fallback to pip with --break-system-packages
+RUN apk add --no-cache py3-yt-dlp || python3 -m pip install --no-cache-dir --break-system-packages yt-dlp
 
 # Update CA certificates
 RUN update-ca-certificates
