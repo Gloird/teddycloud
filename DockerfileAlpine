@@ -24,8 +24,18 @@ LABEL org.opencontainers.image.version=$TEDDYCLOUD_VERSION
 EXPOSE 80 443 8443
 
 # Install necessary runtime dependencies
-RUN apk --no-cache add strace ffmpeg curl ca-certificates bash python3 py3-pip \
-    && pip3 install --no-cache-dir yt-dlp
+RUN apk update && apk --no-cache add \
+    strace \
+    ffmpeg \
+    curl \
+    ca-certificates \
+    bash \
+    python3 \
+    py3-pip
+
+RUN python3 -m pip install --upgrade pip setuptools wheel || true
+
+RUN pip3 install --no-cache-dir yt-dlp
 
 # Update CA certificates
 RUN update-ca-certificates
