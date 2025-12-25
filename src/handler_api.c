@@ -28,11 +28,11 @@
 #include "handler_sse.h"
 
 /* forward declarations for encode-queue (defined later in this file) */
-typedef struct encode_queue_t encode_queue_t;
-encode_queue_t *create_queue_internal(const char *name);
-encode_queue_t *find_queue_by_id(const char *id);
-error_t enqueue_item(encode_queue_t *q, const char *path);
-void encode_queue_task(void *param);
+typedef struct encode_queue_tag encode_queue_t;
+static encode_queue_t *create_queue_internal(const char *name);
+static encode_queue_t *find_queue_by_id(const char *id);
+static error_t enqueue_item(encode_queue_t *q, const char *path);
+static void encode_queue_task(void *param);
 
 error_t parsePostData(HttpConnection *connection, char_t *post_data, size_t buffer_size)
 {
@@ -4060,7 +4060,7 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
 #define EQ_MAX_ITEMS 128
 #define EQ_ID_LEN 40
 
-typedef struct
+typedef struct encode_queue_tag
 {
     char id[EQ_ID_LEN];
     char name[128];
