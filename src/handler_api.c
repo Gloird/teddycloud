@@ -33,6 +33,8 @@ static encode_queue_t *create_queue_internal(const char *name);
 static encode_queue_t *find_queue_by_id(const char *id);
 static error_t enqueue_item(encode_queue_t *q, const char *path);
 static void encode_queue_task(void *param);
+/* helper to create a queue and return its id (id stored in internal static array) */
+static const char *create_queue_get_id(const char *name);
 
 error_t parsePostData(HttpConnection *connection, char_t *post_data, size_t buffer_size)
 {
@@ -4007,11 +4009,15 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
                 if (!queryGet(post_data, "queueId", queueId, sizeof(queueId)))
                 {
                     /* create a default auto queue */
-                    encode_queue_t *q = create_queue_internal("auto");
-                    if (q)
+                    const char *newId = create_queue_get_id("auto");
+                    if (newId)
                     {
-                        enqueue_item(q, destPath);
-                        osSnprintf(queueId, sizeof(queueId), "%s", q->id);
+                        encode_queue_t *q = find_queue_by_id(newId);
+                        if (q)
+                        {
+                            enqueue_item(q, destPath);
+                            osSnprintf(queueId, sizeof(queueId), "%s", newId);
+                        }
                     }
                 }
                 else
@@ -4487,4 +4493,12 @@ error_t handleApiEncodeQueueRemove(HttpConnection *connection, const char_t *uri
     osFreeMem(jsonStr);
     cJSON_Delete(resp);
     return err;
+}
+
+static const char *create_queue_get_id(const char *name)
+{
+    encode_queue_t *q = create_queue_internal(name);
+    if (!q)
+        return NULL;
+    return q->id;
 }
