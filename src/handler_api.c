@@ -3320,12 +3320,80 @@ static cJSON *ytdlp_parse_info(const char *json_str)
     return json;
 }
 
+/* Escape shell argument (basic). Writes result into out (including surrounding quotes). */
+static void shell_escape(const char *in, char *out, size_t out_size)
+{
+    if (!in || !out || out_size == 0)
+        return;
+#ifdef WIN32
+    /* Replace '"' with '\"' and wrap in double quotes */
+    size_t o = 0;
+    if (o + 1 < out_size) out[o++] = '"';
+    for (size_t i = 0; in[i] && o + 2 < out_size; i++)
+    {
+        if (in[i] == '"')
+        {
+            if (o + 2 < out_size)
+            {
+                out[o++] = '\\';
+                out[o++] = '"';
+            }
+        }
+        else
+        {
+            out[o++] = in[i];
+        }
+    }
+    if (o + 1 < out_size) out[o++] = '"';
+    out[o] = '\0';
+#else
+    /* Wrap in single quotes and escape single quotes using '\'' sequence */
+    size_t o = 0;
+    if (o + 1 >= out_size)
+    {
+        out[0] = '\0';
+        return;
+    }
+    out[o++] = '\'';
+    for (size_t i = 0; in[i] && o + 4 < out_size; i++)
+    {
+        if (in[i] == '\'')
+        {
+            /* close quote, escaped single quote, reopen quote: '\'' -> '\''"' pattern */
+            if (o + 4 >= out_size) break;
+            out[o++] = '\'';
+            out[o++] = '\\';
+            out[o++] = '\'';
+            out[o++] = '\'';
+        }
+        else
+        {
+            out[o++] = in[i];
+        }
+    }
+    if (o < out_size) out[o++] = '\'';
+    out[o] = '\0';
+#endif
+}
+
 /**
  * Execute yt-dlp command and capture output
  */
 static error_t ytdlp_exec(const char *command, char *output, size_t output_size, bool capture_stderr)
 {
-    FILE *pipe = osPopen(command, "r");
+    char cmdbuf[8192];
+    FILE *pipe = NULL;
+
+    if (capture_stderr)
+    {
+        osSnprintf(cmdbuf, sizeof(cmdbuf), "%s 2>&1", command);
+        pipe = osPopen(cmdbuf, "r");
+    }
+    else
+    {
+        pipe = osPopen(command, "r");
+    }
+
     if (!pipe)
     {
         TRACE_ERROR("Failed to execute yt-dlp command\r\n");
@@ -3334,7 +3402,8 @@ static error_t ytdlp_exec(const char *command, char *output, size_t output_size,
 
     size_t total_read = 0;
     char buffer[1024];
-    while (fgets(buffer, sizeof(buffer), pipe) != NULL && total_read < output_size - 1)
+    bool truncated = false;
+    while (fgets(buffer, sizeof(buffer), pipe) != NULL)
     {
         size_t len = osStrlen(buffer);
         if (total_read + len < output_size - 1)
@@ -3342,14 +3411,35 @@ static error_t ytdlp_exec(const char *command, char *output, size_t output_size,
             osStrcpy(output + total_read, buffer);
             total_read += len;
         }
+        else
+        {
+            /* fill remaining space and mark truncated; continue draining pipe */
+            if (total_read < output_size - 1)
+            {
+                size_t avail = output_size - 1 - total_read;
+                if (avail > 0)
+                {
+                    osStrncpy(output + total_read, buffer, avail);
+                    total_read += avail;
+                }
+            }
+            truncated = true;
+        }
     }
-    output[total_read] = '\0';
+    if (output_size > 0)
+        output[total_read < output_size ? total_read : output_size - 1] = '\0';
 
     int status = osPclose(pipe);
+
     if (status != 0)
     {
-        TRACE_WARNING("yt-dlp exited with status %d\r\n", status);
+        TRACE_WARNING("yt-dlp exited with status %d. output(len=%zu): %s\r\n", status, total_read, output);
         return ERROR_FAILURE;
+    }
+
+    if (truncated)
+    {
+        TRACE_WARNING("yt-dlp output truncated to %zu bytes\r\n", output_size);
     }
 
     return NO_ERROR;
@@ -3415,13 +3505,15 @@ error_t handleApiUrlInfo(HttpConnection *connection, const char_t *uri, const ch
     }
 
     /* Build yt-dlp command to get JSON info */
-    char command[4096];
+    char command[8192];
+    char esc_url[4096];
+    shell_escape(url, esc_url, sizeof(esc_url));
 #ifdef WIN32
     osSnprintf(command, sizeof(command),
-               "yt-dlp --dump-json --no-download --no-playlist \"%s\" 2>NUL", url);
+               "yt-dlp --dump-json --no-download --no-playlist %s 2>NUL", esc_url);
 #else
     osSnprintf(command, sizeof(command),
-               "yt-dlp --dump-json --no-download --no-playlist \"%s\" 2>/dev/null", url);
+               "yt-dlp --dump-json --no-download --no-playlist %s 2>/dev/null", esc_url);
 #endif
 
     TRACE_INFO("Getting URL info: %s\r\n", url);
@@ -3463,11 +3555,11 @@ error_t handleApiUrlInfo(HttpConnection *connection, const char_t *uri, const ch
         osSnprintf(tmpfname, sizeof(tmpfname), "yt_dlp_out_%lu_%u.json", (unsigned long)time(NULL), r);
 
 #ifdef WIN32
-        char cmd2[8192];
-        osSnprintf(cmd2, sizeof(cmd2), "yt-dlp --dump-json --no-download --no-playlist \"%s\" > \"%s\" 2>NUL", url, tmpfname);
+    char cmd2[8192];
+    osSnprintf(cmd2, sizeof(cmd2), "yt-dlp --dump-json --no-download --no-playlist %s > \"%s\" 2>NUL", esc_url, tmpfname);
 #else
-        char cmd2[8192];
-        osSnprintf(cmd2, sizeof(cmd2), "yt-dlp --dump-json --no-download --no-playlist \"%s\" > \"%s\" 2>/dev/null", url, tmpfname);
+    char cmd2[8192];
+    osSnprintf(cmd2, sizeof(cmd2), "yt-dlp --dump-json --no-download --no-playlist %s > \"%s\" 2>/dev/null", esc_url, tmpfname);
 #endif
 
         int rc = system(cmd2);
@@ -3668,6 +3760,8 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
     char command[8192];
     char outputTemplate[512];
     char stderrFile[512];
+    char esc_url[4096];
+    shell_escape(url, esc_url, sizeof(esc_url));
     osSnprintf(outputTemplate, sizeof(outputTemplate), "%s%cuf_%" PRIuTIME, tempDir, PATH_SEPARATOR, now);
     /* Choose a format that falls back to the combined best if audio-only isn't available */
     char audioFormat[64] = "bestaudio/best";
@@ -3693,13 +3787,13 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
 #ifdef WIN32
     osSnprintf(command, sizeof(command),
                "yt-dlp -f \"%s\" --extract-audio --audio-format mp3 --audio-quality 0 "
-               "--no-playlist -o \"%s.%%(ext)s\" --print after_move:filepath \"%s\" 2> \"%s\"",
-               audioFormat, outputTemplate, url, stderrFile);
+               "--no-playlist -o \"%s.%%(ext)s\" --print after_move:filepath %s 2> \"%s\"",
+               audioFormat, outputTemplate, esc_url, stderrFile);
 #else
     osSnprintf(command, sizeof(command),
                "yt-dlp -f \"%s\" --extract-audio --audio-format mp3 --audio-quality 0 "
-               "--no-playlist -o \"%s.%%(ext)s\" --print after_move:filepath \"%s\" 2>\"%s\"",
-               audioFormat, outputTemplate, url, stderrFile);
+               "--no-playlist -o \"%s.%%(ext)s\" --print after_move:filepath %s 2>\"%s\"",
+               audioFormat, outputTemplate, esc_url, stderrFile);
 #endif
 
     TRACE_INFO("Fetching URL: %s\r\n", url);
@@ -3803,6 +3897,8 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
                 TRACE_ERROR("yt-dlp stderr (end)\r\n");
                 fclose(ef);
             }
+            /* cleanup stderr file */
+            remove(stderrFile);
             osFreeMem(output);
             cJSON *resp = cJSON_CreateObject();
             cJSON_AddBoolToObject(resp, "success", false);
@@ -3899,6 +3995,9 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
                        fetchId, destPath);
             sse_sendEvent("url-fetch-progress", sseData, false);
         }
+
+        /* cleanup stderr file if present */
+        remove(stderrFile);
 
         cJSON *resp = cJSON_CreateObject();
         cJSON_AddBoolToObject(resp, "success", true);
