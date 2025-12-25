@@ -16,6 +16,8 @@ RUN git submodule update --init --recursive || true
 
 RUN curl -f https://raw.githubusercontent.com/toniebox-reverse-engineering/tonies-json/release/tonies.json -o /buildenv/contrib/config/tonies.json || true
 RUN curl -f https://raw.githubusercontent.com/toniebox-reverse-engineering/tonies-json/release/tonieboxes.json -o /buildenv/contrib/config/tonieboxes.json || true
+# Force npm to ignore peer dependency conflicts during build (legacy behaviour)
+ENV NPM_CONFIG_LEGACY_PEER_DEPS=true
 # No libsanitizie support in alpine
 RUN make zip NO_SANITIZERS=${NO_SANITIZERS}
 #RUN make preinstall
@@ -36,7 +38,7 @@ RUN apk update && apk --no-cache add \
     python3 \
     py3-pip
 
-RUN python3 -m pip install --upgrade pip setuptools wheel || true
+RUN python3 -m pip install --upgrade pip setuptools wheel --break-system-packages || true
 
 # Prefer Alpine package when available; fallback to pip with --break-system-packages
 RUN apk add --no-cache py3-yt-dlp || python3 -m pip install --no-cache-dir --break-system-packages yt-dlp
