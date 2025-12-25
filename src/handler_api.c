@@ -27,6 +27,13 @@
 #include "cache.h"
 #include "handler_sse.h"
 
+/* forward declarations for encode-queue (defined later in this file) */
+typedef struct encode_queue_t encode_queue_t;
+encode_queue_t *create_queue_internal(const char *name);
+encode_queue_t *find_queue_by_id(const char *id);
+error_t enqueue_item(encode_queue_t *q, const char *path);
+void encode_queue_task(void *param);
+
 error_t parsePostData(HttpConnection *connection, char_t *post_data, size_t buffer_size)
 {
     error_t error = NO_ERROR;
@@ -4390,7 +4397,7 @@ error_t handleApiEncodeQueueStart(HttpConnection *connection, const char_t *uri,
     }
 
     /* start background task */
-    OsTaskParams taskParams;
+    OsTaskParameters taskParams;
     osMemset(&taskParams, 0, sizeof(taskParams));
     q->active = true;
     q->items_len = q->items_len; /* no-op to quiet warnings */
