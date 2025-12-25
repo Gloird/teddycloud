@@ -5,7 +5,7 @@ FROM alpine:latest AS buildenv
 ARG NO_SANITIZERS=1
 
 # Install necessary dependencies
-RUN apk --no-cache add gcc protobuf-c-dev build-base git zip curl
+RUN apk --no-cache add gcc protobuf-c-dev build-base git zip curl nodejs npm
 
 # Copy source code and build
 COPY . /buildenv
