@@ -11,6 +11,7 @@
 #include "server_helpers.h"
 #include "fs_port.h"
 #include "handler.h"
+#include "toniefile.h"
 #include "handler_api.h"
 #include "handler_cloud.h"
 #include "settings.h"
@@ -3328,7 +3329,8 @@ static void shell_escape(const char *in, char *out, size_t out_size)
 #ifdef WIN32
     /* Replace '"' with '\"' and wrap in double quotes */
     size_t o = 0;
-    if (o + 1 < out_size) out[o++] = '"';
+    if (o + 1 < out_size)
+        out[o++] = '"';
     for (size_t i = 0; in[i] && o + 2 < out_size; i++)
     {
         if (in[i] == '"')
@@ -3344,7 +3346,8 @@ static void shell_escape(const char *in, char *out, size_t out_size)
             out[o++] = in[i];
         }
     }
-    if (o + 1 < out_size) out[o++] = '"';
+    if (o + 1 < out_size)
+        out[o++] = '"';
     out[o] = '\0';
 #else
     /* Wrap in single quotes and escape single quotes using '\'' sequence */
@@ -3360,7 +3363,8 @@ static void shell_escape(const char *in, char *out, size_t out_size)
         if (in[i] == '\'')
         {
             /* close quote, escaped single quote, reopen quote: '\'' -> '\''"' pattern */
-            if (o + 4 >= out_size) break;
+            if (o + 4 >= out_size)
+                break;
             out[o++] = '\'';
             out[o++] = '\\';
             out[o++] = '\'';
@@ -3371,7 +3375,8 @@ static void shell_escape(const char *in, char *out, size_t out_size)
             out[o++] = in[i];
         }
     }
-    if (o < out_size) out[o++] = '\'';
+    if (o < out_size)
+        out[o++] = '\'';
     out[o] = '\0';
 #endif
 }
@@ -3555,11 +3560,11 @@ error_t handleApiUrlInfo(HttpConnection *connection, const char_t *uri, const ch
         osSnprintf(tmpfname, sizeof(tmpfname), "yt_dlp_out_%lu_%u.json", (unsigned long)time(NULL), r);
 
 #ifdef WIN32
-    char cmd2[8192];
-    osSnprintf(cmd2, sizeof(cmd2), "yt-dlp --dump-json --no-download --no-playlist %s > \"%s\" 2>NUL", esc_url, tmpfname);
+        char cmd2[8192];
+        osSnprintf(cmd2, sizeof(cmd2), "yt-dlp --dump-json --no-download --no-playlist %s > \"%s\" 2>NUL", esc_url, tmpfname);
 #else
-    char cmd2[8192];
-    osSnprintf(cmd2, sizeof(cmd2), "yt-dlp --dump-json --no-download --no-playlist %s > \"%s\" 2>/dev/null", esc_url, tmpfname);
+        char cmd2[8192];
+        osSnprintf(cmd2, sizeof(cmd2), "yt-dlp --dump-json --no-download --no-playlist %s > \"%s\" 2>/dev/null", esc_url, tmpfname);
 #endif
 
         int rc = system(cmd2);
@@ -3986,6 +3991,31 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
                 relPath++;
         }
 
+        /* Optionally enqueue into an encode queue */
+        {
+            char enqueueStr[8] = "";
+            char queueId[64] = "";
+            if (queryGet(post_data, "enqueue", enqueueStr, sizeof(enqueueStr)) && (osStrcmp(enqueueStr, "1") == 0 || osStrcmp(enqueueStr, "true") == 0))
+            {
+                if (!queryGet(post_data, "queueId", queueId, sizeof(queueId)))
+                {
+                    /* create a default auto queue */
+                    encode_queue_t *q = create_queue_internal("auto");
+                    if (q)
+                    {
+                        enqueue_item(q, destPath);
+                        osSnprintf(queueId, sizeof(queueId), "%s", q->id);
+                    }
+                }
+                else
+                {
+                    encode_queue_t *q = find_queue_by_id(queueId);
+                    if (q)
+                        enqueue_item(q, destPath);
+                }
+            }
+        }
+
         /* Send SSE completion event */
         if (osStrlen(fetchId) > 0)
         {
@@ -4016,4 +4046,438 @@ error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const c
 
         return err;
     }
+}
+
+/* --- Simple in-memory encode queue implementation --- */
+#define EQ_MAX_QUEUES 8
+#define EQ_MAX_ITEMS 128
+#define EQ_ID_LEN 40
+
+typedef struct
+{
+    char id[EQ_ID_LEN];
+    char name[128];
+    char items[EQ_MAX_ITEMS][PATH_LEN];
+    size_t items_len;
+    bool active;
+} encode_queue_t;
+
+static encode_queue_t encode_queues[EQ_MAX_QUEUES];
+
+static void generate_queue_id(char *out, size_t out_size)
+{
+    osSnprintf(out, out_size, "q_%lu_%u", (unsigned long)time(NULL), (unsigned int)(rand() & 0xffff));
+}
+
+static encode_queue_t *find_queue_by_id(const char *id)
+{
+    if (!id)
+        return NULL;
+    for (int i = 0; i < EQ_MAX_QUEUES; i++)
+    {
+        if (encode_queues[i].id[0] != '\0' && osStrcmp(encode_queues[i].id, id) == 0)
+            return &encode_queues[i];
+    }
+    return NULL;
+}
+
+static encode_queue_t *create_queue_internal(const char *name)
+{
+    for (int i = 0; i < EQ_MAX_QUEUES; i++)
+    {
+        if (encode_queues[i].id[0] == '\0')
+        {
+            generate_queue_id(encode_queues[i].id, sizeof(encode_queues[i].id));
+            osStrcpy(encode_queues[i].name, name ? name : "batch");
+            encode_queues[i].items_len = 0;
+            encode_queues[i].active = false;
+            return &encode_queues[i];
+        }
+    }
+    return NULL;
+}
+
+static error_t enqueue_item(encode_queue_t *q, const char *path)
+{
+    if (!q || !path)
+        return ERROR_INVALID_PARAMETER;
+    if (q->items_len >= EQ_MAX_ITEMS)
+        return ERROR_FAILURE;
+    osStrcpy(q->items[q->items_len], path);
+    q->items_len++;
+    return NO_ERROR;
+}
+
+/* Background task that encodes queue to target taf */
+static void encode_queue_task(void *param)
+{
+    encode_queue_t *q = (encode_queue_t *)param;
+    if (!q)
+        return;
+    q->active = true;
+
+    /* build sources array */
+    char sources[99][PATH_LEN];
+    size_t source_len = 0;
+    for (size_t i = 0; i < q->items_len && i < 99; i++)
+    {
+        osStrcpy(sources[source_len], q->items[i]);
+        source_len++;
+    }
+
+    /* target TAF path - create in content dir with queue id */
+    char target[PATH_LEN];
+    settings_t *settings = get_settings();
+    osSnprintf(target, sizeof(target), "%s%ctaf_%s.taf", settings->internal.contentdirfull, PATH_SEPARATOR, q->id);
+    sanitizePath(target, false);
+
+    TRACE_INFO("Starting encode queue %s -> %s (items=%" PRIuSIZE ")\r\n", q->id, target, q->items_len);
+
+    bool_t sweep = false;
+    bool_t active_flag = true;
+    error_t err = NO_ERROR;
+
+    for (size_t idx = 0; idx < q->items_len; idx++)
+    {
+        char *src = q->items[idx];
+        char sseStart[512];
+        osSnprintf(sseStart, sizeof(sseStart), "{\"queueId\":\"%s\",\"status\":\"item-start\",\"index\":%" PRIuSIZE ",\"file\":\"%s\"}", q->id, idx, src);
+        sse_sendEvent("encode-queue-progress", sseStart, false);
+
+        char sourceArr[1][PATH_LEN];
+        osStrcpy(sourceArr[0], src);
+        size_t cur = 0;
+        bool_t append = (idx != 0);
+
+        err = ffmpeg_stream(sourceArr, 1, &cur, target, 0, &active_flag, &sweep, append, false);
+
+        if (err == NO_ERROR)
+        {
+            char sseDone[512];
+            osSnprintf(sseDone, sizeof(sseDone), "{\"queueId\":\"%s\",\"status\":\"item-complete\",\"index\":%" PRIuSIZE ",\"file\":\"%s\"}", q->id, idx, src);
+            sse_sendEvent("encode-queue-progress", sseDone, false);
+        }
+        else
+        {
+            TRACE_ERROR("Encode queue %s failed at item %" PRIuSIZE ": %s\r\n", q->id, idx, error2text(err));
+            char sseErr[512];
+            osSnprintf(sseErr, sizeof(sseErr), "{\"queueId\":\"%s\",\"status\":\"error\",\"index\":%" PRIuSIZE ",\"error\":\"%s\"}", q->id, idx, error2text(err));
+            sse_sendEvent("encode-queue-progress", sseErr, false);
+            break;
+        }
+    }
+
+    if (err == NO_ERROR)
+    {
+        TRACE_INFO("Encode queue %s finished: %s\r\n", q->id, target);
+        char sseData[512];
+        osSnprintf(sseData, sizeof(sseData), "{\"queueId\":\"%s\",\"status\":\"complete\",\"file\":\"%s\"}", q->id, target);
+        sse_sendEvent("encode-queue-progress", sseData, false);
+    }
+
+    q->active = false;
+    osDeleteTask((OsTaskId)OS_SELF_TASK_ID);
+}
+
+/* HTTP handlers for encode queue */
+error_t handleApiEncodeQueueCreate(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx)
+{
+    char_t post_data[POST_BUFFER_SIZE];
+    error_t error = parsePostData(connection, post_data, POST_BUFFER_SIZE);
+    if (error != NO_ERROR)
+        return error;
+
+    char name[128] = "batch";
+    queryGet(post_data, "name", name, sizeof(name));
+
+    encode_queue_t *q = create_queue_internal(name);
+    if (!q)
+    {
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "No space for new queue");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 500;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddBoolToObject(resp, "success", true);
+    cJSON_AddStringToObject(resp, "queueId", q->id);
+    char *jsonStr = cJSON_PrintUnformatted(resp);
+    httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+    error_t err = httpWriteResponseString(connection, jsonStr, false);
+    osFreeMem(jsonStr);
+    cJSON_Delete(resp);
+    return err;
+}
+
+error_t handleApiEncodeQueueAdd(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx)
+{
+    char_t post_data[POST_BUFFER_SIZE];
+    error_t error = parsePostData(connection, post_data, POST_BUFFER_SIZE);
+    if (error != NO_ERROR)
+        return error;
+
+    char queueId[64];
+    char filePath[PATH_LEN];
+    if (!queryGet(post_data, "queueId", queueId, sizeof(queueId)) || !queryGet(post_data, "filePath", filePath, sizeof(filePath)))
+    {
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "queueId and filePath required");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 400;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    encode_queue_t *q = find_queue_by_id(queueId);
+    if (!q)
+    {
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "queue not found");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 404;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    /* basic validation: ensure path exists under content dir */
+    settings_t *settings = client_ctx->settings;
+    const char *contentRoot = settings->internal.contentdirfull;
+    if (osStrncmp(filePath, contentRoot, osStrlen(contentRoot)) != 0)
+    {
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "filePath must be under content dir");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 400;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    if (!fsFileExists(filePath))
+    {
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "file not found");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 404;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    error = enqueue_item(q, filePath);
+    if (error != NO_ERROR)
+    {
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "failed to enqueue");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 500;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddBoolToObject(resp, "success", true);
+    char *jsonStr = cJSON_PrintUnformatted(resp);
+    httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+    error_t err = httpWriteResponseString(connection, jsonStr, false);
+    osFreeMem(jsonStr);
+    cJSON_Delete(resp);
+    return err;
+}
+
+error_t handleApiEncodeQueueList(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx)
+{
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddBoolToObject(resp, "success", true);
+    cJSON *arr = cJSON_CreateArray();
+    for (int i = 0; i < EQ_MAX_QUEUES; i++)
+    {
+        if (encode_queues[i].id[0] == '\0')
+            continue;
+        cJSON *q = cJSON_CreateObject();
+        cJSON_AddStringToObject(q, "queueId", encode_queues[i].id);
+        cJSON_AddStringToObject(q, "name", encode_queues[i].name);
+        cJSON_AddBoolToObject(q, "active", encode_queues[i].active);
+        cJSON *items = cJSON_CreateArray();
+        for (size_t j = 0; j < encode_queues[i].items_len; j++)
+            cJSON_AddItemToArray(items, cJSON_CreateString(encode_queues[i].items[j]));
+        cJSON_AddItemToObject(q, "items", items);
+        cJSON_AddItemToArray(arr, q);
+    }
+    cJSON_AddItemToObject(resp, "queues", arr);
+    char *jsonStr = cJSON_PrintUnformatted(resp);
+    httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+    error_t err = httpWriteResponseString(connection, jsonStr, false);
+    osFreeMem(jsonStr);
+    cJSON_Delete(resp);
+    return err;
+}
+
+error_t handleApiEncodeQueueStart(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx)
+{
+    char_t post_data[POST_BUFFER_SIZE];
+    error_t error = parsePostData(connection, post_data, POST_BUFFER_SIZE);
+    if (error != NO_ERROR)
+        return error;
+
+    char queueId[64];
+    if (!queryGet(post_data, "queueId", queueId, sizeof(queueId)))
+    {
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "queueId required");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 400;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    encode_queue_t *q = find_queue_by_id(queueId);
+    if (!q)
+    {
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "queue not found");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 404;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    if (q->active)
+    {
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "queue already active");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 409;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    /* start background task */
+    OsTaskParams taskParams;
+    osMemset(&taskParams, 0, sizeof(taskParams));
+    q->active = true;
+    q->items_len = q->items_len; /* no-op to quiet warnings */
+    q->active = false;           /* will be set inside task */
+    OsTaskId tid = osCreateTask(q->name, &encode_queue_task, q, &taskParams);
+
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddBoolToObject(resp, "success", true);
+    cJSON_AddStringToObject(resp, "taskId", (const char *)tid);
+    char *jsonStr = cJSON_PrintUnformatted(resp);
+    httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+    error_t err = httpWriteResponseString(connection, jsonStr, false);
+    osFreeMem(jsonStr);
+    cJSON_Delete(resp);
+    return err;
+}
+
+error_t handleApiEncodeQueueRemove(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx)
+{
+    char_t post_data[POST_BUFFER_SIZE];
+    error_t error = parsePostData(connection, post_data, POST_BUFFER_SIZE);
+    if (error != NO_ERROR)
+        return error;
+
+    char queueId[64];
+    char indexStr[16];
+    if (!queryGet(post_data, "queueId", queueId, sizeof(queueId)))
+    {
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "queueId required");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 400;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+    encode_queue_t *q = find_queue_by_id(queueId);
+    if (!q)
+    {
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddBoolToObject(resp, "success", false);
+        cJSON_AddStringToObject(resp, "error", "queue not found");
+        char *jsonStr = cJSON_PrintUnformatted(resp);
+        httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+        connection->response.statusCode = 404;
+        error_t err = httpWriteResponseString(connection, jsonStr, false);
+        osFreeMem(jsonStr);
+        cJSON_Delete(resp);
+        return err;
+    }
+
+    if (queryGet(post_data, "index", indexStr, sizeof(indexStr)))
+    {
+        int idx = atoi(indexStr);
+        if (idx < 0 || (size_t)idx >= q->items_len)
+        {
+            cJSON *resp = cJSON_CreateObject();
+            cJSON_AddBoolToObject(resp, "success", false);
+            cJSON_AddStringToObject(resp, "error", "index out of bounds");
+            char *jsonStr = cJSON_PrintUnformatted(resp);
+            httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+            connection->response.statusCode = 400;
+            error_t err = httpWriteResponseString(connection, jsonStr, false);
+            osFreeMem(jsonStr);
+            cJSON_Delete(resp);
+            return err;
+        }
+        /* remove item */
+        for (size_t j = idx; j + 1 < q->items_len; j++)
+            osStrcpy(q->items[j], q->items[j + 1]);
+        q->items_len--;
+    }
+    else
+    {
+        /* remove entire queue */
+        osMemset(q, 0, sizeof(*q));
+    }
+
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddBoolToObject(resp, "success", true);
+    char *jsonStr = cJSON_PrintUnformatted(resp);
+    httpPrepareHeader(connection, "application/json; charset=utf-8", osStrlen(jsonStr));
+    error_t err = httpWriteResponseString(connection, jsonStr, false);
+    osFreeMem(jsonStr);
+    cJSON_Delete(resp);
+    return err;
 }

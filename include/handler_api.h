@@ -77,4 +77,11 @@ error_t handleApiPluginsGet(HttpConnection *connection, const char_t *uri, const
 error_t handleApiUrlInfo(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx);
 error_t handleApiUrlFetch(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx);
 
+/* Encode queue API */
+error_t handleApiEncodeQueueCreate(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx);
+error_t handleApiEncodeQueueAdd(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx);
+error_t handleApiEncodeQueueList(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx);
+error_t handleApiEncodeQueueStart(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx);
+error_t handleApiEncodeQueueRemove(HttpConnection *connection, const char_t *uri, const char_t *queryString, client_ctx_t *client_ctx);
+
 #endif
