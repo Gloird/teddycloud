@@ -2,7 +2,7 @@ name: Build and push multi-arch images
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "develop-gloird" ]
     tags:
       - 'v*'
   workflow_dispatch:
