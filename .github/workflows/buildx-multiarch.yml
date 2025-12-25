@@ -39,5 +39,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ toLower(github.repository_owner) }}/teddycloud:latest
-            ghcr.io/${{ toLower(github.repository_owner) }}/teddycloud:${{ toLower(github.ref_name) }}
+            ghcr.io/gloird/teddycloud:latest
+            ghcr.io/gloird/teddycloud:${{github.ref_name}}
