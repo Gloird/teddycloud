@@ -24,6 +24,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Check for frontend lockfile
+        id: lockfile
+        run: |
+          if [ -f teddycloud_web/package-lock.json ]; then
+            echo "has_lockfile=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_lockfile=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2
         with:
@@ -35,9 +44,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          # Use the lockfile inside `teddycloud_web` for dependency caching
-          cache-dependency-path: teddycloud_web/package-lock.json
+
+      - name: Cache npm registry and build dependencies
+        if: steps.lockfile.outputs.has_lockfile == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-teddycloud-web-${{ hashFiles('teddycloud_web/package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-teddycloud-web-
 
       - name: Build frontend
         run: |
