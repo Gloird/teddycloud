@@ -57,7 +57,11 @@ jobs:
       - name: Build frontend
         run: |
           cd teddycloud_web
-          npm ci
+          if [ "${{ steps.lockfile.outputs.has_lockfile }}" = "true" ]; then
+            npm ci
+          else
+            npm install
+          fi
           npm run build
 
       - name: Build and push (multi-arch)
