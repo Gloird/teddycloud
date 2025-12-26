@@ -33,13 +33,11 @@ jobs:
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
-        # Run setup-node in the frontend folder so the lockfile is found reliably
-        working-directory: teddycloud_web
         with:
           node-version: '18'
           cache: 'npm'
           # Use the lockfile inside `teddycloud_web` for dependency caching
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: teddycloud_web/package-lock.json
 
       - name: Build frontend
         run: |
