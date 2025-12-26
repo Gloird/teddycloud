@@ -1958,6 +1958,8 @@ error_t handleApiEncodeFile(HttpConnection *connection, const char_t *uri, const
         return error;
     }
 
+    TRACE_INFO("handleApiEncodeFile POST body: '%s'\r\n", post_data);
+
     char multisource[99][PATH_LEN];
     uint8_t multisource_size = 0;
     char source[PATH_LEN];
@@ -1988,6 +1990,7 @@ error_t handleApiEncodeFile(HttpConnection *connection, const char_t *uri, const
             sanitizePath(source, false);
             osSprintf(multisource[multisource_size], "%s%c%s", rootPath, PATH_SEPARATOR, source);
             sanitizePath(multisource[multisource_size], false);
+            TRACE_INFO("handleApiEncodeFile constructed source[%d] = '%s'\r\n", multisource_size, multisource[multisource_size]);
             // TRACE_INFO("Source %s\r\n", multisource[multisource_size]);
             if (!fsFileExists(multisource[multisource_size]))
             {
