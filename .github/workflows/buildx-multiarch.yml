@@ -36,7 +36,9 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: teddycloud_web/package-lock.json
+          # Avoid failing the run if the lockfile path is missing in some branches/PRs.
+          # If you'd like caching based on the lockfile, re-add this line
+          # and ensure `teddycloud_web/package-lock.json` exists on the branch.
 
       - name: Build frontend
         run: |
