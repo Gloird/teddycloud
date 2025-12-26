@@ -1987,11 +1987,19 @@ error_t handleApiEncodeFile(HttpConnection *connection, const char_t *uri, const
     {
         while (queryGetMulti(post_data, "source", source, sizeof(source), multisource_size))
         {
+            /* If client provided an absolute path (starting with PATH_SEPARATOR), use it as-is.
+               Otherwise build path relative to the selected rootPath. */
             sanitizePath(source, false);
-            osSprintf(multisource[multisource_size], "%s%c%s", rootPath, PATH_SEPARATOR, source);
+            if (source[0] == PATH_SEPARATOR)
+            {
+                osSprintf(multisource[multisource_size], "%s", source);
+            }
+            else
+            {
+                osSprintf(multisource[multisource_size], "%s%c%s", rootPath, PATH_SEPARATOR, source);
+            }
             sanitizePath(multisource[multisource_size], false);
             TRACE_INFO("handleApiEncodeFile constructed source[%d] = '%s'\r\n", multisource_size, multisource[multisource_size]);
-            // TRACE_INFO("Source %s\r\n", multisource[multisource_size]);
             if (!fsFileExists(multisource[multisource_size]))
             {
                 TRACE_ERROR("Source %s does not exist!\r\n", multisource[multisource_size]);
