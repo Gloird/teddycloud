@@ -31,6 +31,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: teddycloud_web/package-lock.json
+
+      - name: Build frontend
+        run: |
+          cd teddycloud_web
+          npm ci
+          npm run build
+
       - name: Build and push (multi-arch)
         uses: docker/build-push-action@v4
         with:
@@ -38,6 +51,9 @@ jobs:
           file: DockerfileAlpine
           platforms: linux/amd64,linux/arm64
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/gloird/teddycloud:latest
             ghcr.io/gloird/teddycloud:${{github.ref_name}}
+            

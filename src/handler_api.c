@@ -1987,12 +1987,26 @@ error_t handleApiEncodeFile(HttpConnection *connection, const char_t *uri, const
     {
         while (queryGetMulti(post_data, "source", source, sizeof(source), multisource_size))
         {
-            /* If client provided an absolute path (starting with PATH_SEPARATOR), use it as-is.
-               Otherwise build path relative to the selected rootPath. */
+            /* If client provided a path starting with '/', decide whether it's already
+               a full filesystem path (starts with rootPath) or a relative path under
+               the content/library root. If it's only a relative path with leading '/'
+               (e.g. '/uf_...'), prefix the configured rootPath. Otherwise use as-is.
+            */
             sanitizePath(source, false);
             if (source[0] == PATH_SEPARATOR)
             {
-                osSprintf(multisource[multisource_size], "%s", source);
+                size_t rootLen = osStrlen(rootPath);
+                if (osStrncmp(source, rootPath, rootLen) == 0)
+                {
+                    /* Already an absolute path under rootPath */
+                    osSprintf(multisource[multisource_size], "%s", source);
+                }
+                else
+                {
+                    /* Treat as relative under rootPath (remove leading slash when joining) */
+                    const char *rel = source + 1; /* skip leading '/' */
+                    osSprintf(multisource[multisource_size], "%s%c%s", rootPath, PATH_SEPARATOR, rel);
+                }
             }
             else
             {
