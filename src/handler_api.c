@@ -2016,9 +2016,41 @@ error_t handleApiEncodeFile(HttpConnection *connection, const char_t *uri, const
             TRACE_INFO("handleApiEncodeFile constructed source[%d] = '%s'\r\n", multisource_size, multisource[multisource_size]);
             if (!fsFileExists(multisource[multisource_size]))
             {
-                TRACE_ERROR("Source %s does not exist!\r\n", multisource[multisource_size]);
-                osFreeMem(targetAbsolute);
-                return ERROR_INVALID_REQUEST;
+                /* Try fallback to content dir if the file is not present under the requested root */
+                const char *contentRoot = settings_get_string_ovl("internal.contentdirfull", overlay);
+                if (contentRoot != NULL && osStrcmp(contentRoot, rootPath) != 0)
+                {
+                    char alt[PATH_LEN];
+                    /* Rebuild path using the original 'source' value under contentRoot */
+                    if (source[0] == PATH_SEPARATOR)
+                    {
+                        const char *rel = source + 1;
+                        osSprintf(alt, "%s%c%s", contentRoot, PATH_SEPARATOR, rel);
+                    }
+                    else
+                    {
+                        osSprintf(alt, "%s%c%s", contentRoot, PATH_SEPARATOR, source);
+                    }
+                    sanitizePath(alt, false);
+                    TRACE_INFO("handleApiEncodeFile trying fallback source = '%s'\r\n", alt);
+                    if (fsFileExists(alt))
+                    {
+                        osSprintf(multisource[multisource_size], "%s", alt);
+                        TRACE_INFO("handleApiEncodeFile fallback succeeded for source[%d] = '%s'\r\n", multisource_size, multisource[multisource_size]);
+                    }
+                    else
+                    {
+                        TRACE_ERROR("Source %s does not exist!\r\n", multisource[multisource_size]);
+                        osFreeMem(targetAbsolute);
+                        return ERROR_INVALID_REQUEST;
+                    }
+                }
+                else
+                {
+                    TRACE_ERROR("Source %s does not exist!\r\n", multisource[multisource_size]);
+                    osFreeMem(targetAbsolute);
+                    return ERROR_INVALID_REQUEST;
+                }
             }
             multisource_size++;
         }
