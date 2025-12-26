@@ -24,45 +24,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Check for frontend lockfile
-        id: lockfile
-        run: |
-          if [ -f teddycloud_web/package-lock.json ]; then
-            echo "has_lockfile=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_lockfile=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Cache npm registry and build dependencies
-        if: steps.lockfile.outputs.has_lockfile == 'true'
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: npm-${{ runner.os }}-teddycloud-web-${{ hashFiles('teddycloud_web/package-lock.json') }}
-          restore-keys: |
-            npm-${{ runner.os }}-teddycloud-web-
-
-      - name: Build frontend
-        run: |
-          cd teddycloud_web
-          if [ "${{ steps.lockfile.outputs.has_lockfile }}" = "true" ]; then
-            npm ci
-          else
-            npm install
-          fi
-          npm run build
 
       - name: Build and push (multi-arch)
         uses: docker/build-push-action@v4
@@ -71,9 +38,6 @@ jobs:
           file: DockerfileAlpine
           platforms: linux/amd64,linux/arm64
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/gloird/teddycloud:latest
             ghcr.io/gloird/teddycloud:${{github.ref_name}}
-            
