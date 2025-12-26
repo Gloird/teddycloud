@@ -33,12 +33,13 @@ jobs:
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
+        # Run setup-node in the frontend folder so the lockfile is found reliably
+        working-directory: teddycloud_web
         with:
           node-version: '18'
           cache: 'npm'
-          # Avoid failing the run if the lockfile path is missing in some branches/PRs.
-          # If you'd like caching based on the lockfile, re-add this line
-          # and ensure `teddycloud_web/package-lock.json` exists on the branch.
+          # Use the lockfile inside `teddycloud_web` for dependency caching
+          cache-dependency-path: package-lock.json
 
       - name: Build frontend
         run: |
