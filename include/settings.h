@@ -26,7 +26,7 @@
 #define TONIEBOX_CUSTOM_JSON_FILE "tonieboxes.custom.json"
 #define CONFIG_FILE "config.ini"
 #define CONFIG_OVERLAY_FILE "config.overlay.ini"
-#define CONFIG_VERSION 14
+#define CONFIG_VERSION 15
 #define MAX_OVERLAYS 16 + 1
 
 typedef enum
@@ -53,6 +53,7 @@ typedef enum
     BOX_CC3200 = 1,
     BOX_CC3235 = 2,
     BOX_ESP32 = 3,
+    BOX_TB2 = 4,
 } settings_box_type;
 
 typedef enum
@@ -74,10 +75,15 @@ typedef struct
     bool enableV1Claim;
     bool enableV1CloudReset;
     bool enableV1FreshnessCheck;
+    bool enableV3FreshnessCheck;
     bool enableV1Log;
     bool enableV1Time;
     bool enableV1Ota;
+    bool enableV3Ota;
     bool enableV2Content;
+    bool enableV3SetupStatus;
+    bool enableV3ContentMeta;
+    bool enableV3Chapter;
     bool cacheOta;
     bool localOta;
     bool cacheContent;
@@ -122,7 +128,19 @@ typedef struct
     uint32_t qosLevel;
     bool retain_will;
     bool disable_on_error;
+    // TLS Settings
+    bool tls_enabled;
+    char *tls_ca_file;
+    bool tls_insecure;
 } settings_mqtt_t;
+
+typedef struct
+{
+    bool enabled;
+    uint32_t port;
+    char *cert_crt;
+    char *cert_key;
+} settings_mqtt_server_t;
 
 typedef struct
 {
@@ -143,6 +161,12 @@ typedef struct
     uint32_t field2;
     uint32_t field6;
 } settings_toniebox_t;
+
+typedef struct
+{
+    bool baby_mode; 
+    uint8_t lightring_brightness;
+} settings_toniebox2_t;
 
 typedef struct
 {
@@ -373,9 +397,11 @@ typedef struct
     settings_encode_t encode;
     settings_frontend_t frontend;
     settings_mqtt_t mqtt;
+    settings_mqtt_server_t mqtt_server;
     settings_hass_t hass;
     settings_security_mit_t security_mit;
     settings_toniebox_t toniebox;
+    settings_toniebox2_t toniebox2;
     settings_internal_t internal;
     settings_log_t log;
     settings_rtnl_t rtnl;

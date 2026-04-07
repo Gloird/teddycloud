@@ -125,6 +125,7 @@
                     "icon": "L'icône utilisée pour le plugin. Doit être un composant d'icône Ant Design valide depuis https://ant.design/components/icon, par ex. TrophyOutlined, TagsOutlined",
                     "pluginHomepage": "Page d'accueil du plugin",
                     "pluginName": "Le titre affiché dans les menus (obligatoire)",
+                    "standalone": "Indicateur booléen précisant si le plugin doit être exécuté en mode autonome (sans en-tête, sans barre latérale, sans pied de page). Important : la valeur true et false ne doit pas être entre guillemets.",
                     "teddyCloudSection": "Section souhaitée où le plugin doit être ajouté à la navigation (valeurs valides : home, tonies, tonieboxes, settings, community)",
                     "version": "Version du plugin"
                 },
@@ -366,7 +367,7 @@
                     "title": "Modifier les métadonnées TAF"
                 },
                 "editTAPPlaylist": {
-                    "text": "Ouvre l'éditeur de liste de lecture audio Tonie pour gérer les fichiers TAP. (WIP)",
+                    "text": "Ouvre l'éditeur de TeddyAudio Playlist pour gérer les fichiers TAP.",
                     "title": "Modifier la liste de lecture TAP"
                 },
                 "migrateToAudioIdFolder": {
@@ -498,10 +499,23 @@
             "edit": "(WIP - non implémenté) Éditer les métadonnées"
         },
         "tap": {
-            "copy": "(WIP - non implémenté) Dupliquer la playlist audio Tonie",
-            "edit": "(WIP - non implémenté) Modifier la playlist audio Tonie"
+            "edit": "Modifier la playlist audio Tonie",
+            "messages": {
+                "savedSuccessfully": "TAP enregistré avec succès !",
+                "savedSuccessfullyDetails": "Le TAP \"{{file}}\" a été enregistré avec succès dans \"{{path}}\".",
+                "savingFailed": "Échec de l'enregistrement du TAP !",
+                "savingFailedDetails": "L'enregistrement du TAP \"{{file}}\" dans \"{{path}}\" a échoué :"
+            }
         },
         "title": "Navigateur de fichiers",
+        "unusedTafsModal": {
+            "actions": "Actions",
+            "fullPath": "Chemin complet",
+            "name": "Nom du fichier TAF",
+            "noUnusedTafs": "Aucun TAF inutilisé trouvé !",
+            "ok": "OK",
+            "title": "Fichiers TAF inutilisés"
+        },
         "upload": {
             "cancel": "Annuler",
             "hideUploadFilesDragNDrop": "Masquer le téléversement de fichiers",
@@ -1035,7 +1049,6 @@
         "restartTC": "Redémarrage de TeddyCloud",
         "rtnl": {
             "clear": "Effacer le journal RTNL",
-            "enableRtnl": "Activer la journalisation",
             "navigationTitle": "Journal RTNL",
             "title": "Journal RTNL"
         },
@@ -1170,20 +1183,20 @@
                 "esp32pro1": "Dernière version disponible",
                 "esp32pro2": "Méthode de flashage la plus simple via navigateur + adaptateur UART",
                 "esp32pro3": "Large communauté de développeurs pour ESP32",
-                "howToIdentify": "Comment identifier la version de ta Toniebox sans ouvrir l'emballage",
+                "howToIdentify": "Comment identifier la version de ta Toniebox 1 sans ouvrir l'emballage",
                 "howToIdentifyIntro": "Comme il n'y a pas d'étiquette indiquant la version exacte, identifier la version de la Toniebox nécessite de suivre quelques indices mineurs :",
                 "howToIdentifyOutro": "Pour plus de détails, voir ",
-                "intro": "Actuellement, il existe quatre versions connues de la Toniebox, qui diffèrent principalement par le MCU (Microcontroller Unit) utilisé :",
+                "intro": "Actuellement, il existe quatre versions connues de la Toniebox 1, qui diffèrent principalement par le MCU (Microcontroller Unit) utilisé et 1 version de Toniebox 2:",
                 "macAddressCheck": "Vérification de l'adresse MAC :",
                 "macAddressCheckText": "La méthode la plus fiable pour déterminer la version est de vérifier la présence d'une adresse MAC imprimée, qui peut être sur l'emballage ou directement sur la Toniebox. Utilise macvendors.com pour vérifier l'adresse MAC et trouver le fabricant du MCU, ce qui peut t'aider à identifier la version de la Toniebox.",
                 "navigationTitle": "Versions",
                 "pros": "Avantages",
                 "title": "À propos des différentes versions de Toniebox",
                 "uses": "Utilise le",
-                "whatVersion": "Quelle version de Toniebox devrais-je choisir ?",
-                "whatVersionConclusion": "Nous ne recommandons pas la version V3 CC3235 en raison des difficultés de flashage et du support limité. Actuellement, la version V1/V2 (TI CC3200) offre le plus de fonctionnalités, y compris la prise en charge d'un bootloader et d'un firmware personnalisés. Cependant, pour l'avenir, nous recommandons la version V4 basée sur ESP32.",
+                "whatVersion": "Quelle version de Toniebox 1 devrais-je choisir ?",
+                "whatVersionConclusion": "Nous ne recommandons pas la version TB1 V3 CC3235 en raison des difficultés de flashage et du support limité. Actuellement, la version TB1 V1/V2 (TI CC3200) offre le plus de fonctionnalités, y compris la prise en charge d'un bootloader et d'un firmware personnalisés. Cependant, pour l'avenir, nous recommandons la version TB1 V4 basée sur ESP32.",
                 "whatVersionConclusionHeader": "Conclusion",
-                "whatVersionIntro": "Si tu n'as pas encore choisi de Toniebox, voici les avantages et inconvénients de chaque version pour t'aider dans ta décision. En fin de compte, le choix dépend de tes besoins et préférences personnels. Toutes les versions sont au moins compatibles avec TeddyCloud."
+                "whatVersionIntro": "Si tu n'as pas encore choisi de Toniebox 1, voici les avantages et inconvénients de chaque version pour t'aider dans ta décision. En fin de compte, le choix dépend de tes besoins et préférences personnels. Toutes les versions sont au moins compatibles avec TeddyCloud."
             },
             "flashBox": "Flasher la Toniebox",
             "flashBoxText": "Pour ajouter votre Toniebox à TeddyCloud, certaines modifications sont nécessaires. Selon la version de votre Toniebox, il existe trois directives spécifiques à suivre :",
@@ -1204,12 +1217,15 @@
                 "mac": "Merci d'entrer l'adresse MAC :",
                 "macvendors": "Vérifier utilise l'API fournie par",
                 "macvendorsLink": "macvendors.com",
-                "navigationTitle": "Identifier la version",
+                "navigationTitle": "Identifier la TB1 version",
                 "or": "ou",
                 "proceedToFlash1": "Accédez à la page de flashage pour la version sélectionnée :",
                 "proceedToFlashLinkText": "Flashage de la boîte",
+                "tb2": "Concernant la Toniebox 2",
+                "tb2Details": "Une seule version de la dernière Toniebox 2 est connue, donc l’identification est simple. Si votre box est une Toniebox 2, vous pouvez aller directement aux instructions de flash pour la Toniebox 2.",
+                "tb2text": "Cette version est unique et a TB-MAIN_2.0.P imprimé sur le pcb comme montré dans l'image suivante.",
                 "tiInstruction": "Pour connaître la version spécifique, tu dois ouvrir ta Toniebox et utiliser la puce principale de la carte PCB pour l'identifier.",
-                "title": "Identifie ta version de Toniebox",
+                "title": "Identifie ta version de Toniebox 1",
                 "vendor": "Le fabricant de la puce principale de ta Toniebox est",
                 "version": "version"
             },
@@ -1514,6 +1530,7 @@
             "connectESP32Text2": "Si vous n'êtes pas sûr du mode dans lequel démarre l'ESP32, vérifiez ce qui suit.",
             "downloadMode": "Mode de téléchargement",
             "downloadModeText": "LED éteinte, pas de son, Sortie série :",
+            "esp32UartJ100": "ESP32 J100",
             "esp32UartJ103": "ESP32 J103",
             "esp32UartJ103AnalogClamp": "ESP32 J103 avec une pince à linge",
             "esp32UartJ103Clamp": "ESP32 J103 avec une pince 4 broches",
@@ -1555,6 +1572,12 @@
             "baudRateInfo": "Si tu rencontres des problèmes pour lire ou écrire dans la mémoire flash, essaie de changer le taux de baud. La valeur par défaut est 921600.",
             "browserNotSupported": "La fonctionnalité de flashage intégré de la boîte ESP32 ne peut être utilisée qu'avec des navigateurs prenant en charge l'API Web Serial. Malheureusement, votre navigateur actuel ne prend pas en charge cette fonctionnalité. Veuillez utiliser un navigateur qui prend en charge l'API Web Serial, comme Chrome ou Edge.",
             "esp32flasher": {
+                "ackBackUpWithOtherTool": "He creado una copia de seguridad con otra herramienta o soy consciente de que continúo sin una copia de seguridad adicional bajo mi propia responsabilidad.",
+                "ackLatestFirmware": "Confirmo que la caja se conectó a la nube original, recibió el firmware más reciente y pudo reproducir un Tonie correctamente.",
+                "ackRisk": "He leído y comprendido esta advertencia y soy consciente de los riesgos asociados.",
+                "ackUARTHint": "J'ai réglé la tension correcte (3,3 V) et installé le pilote requis dans sa version la plus récente.",
+                "alternativeTools": "A continuación se muestran algunas herramientas alternativas para crear una copia de seguridad. Existen otras opciones: utiliza la que te resulte más familiar.",
+                "alternativeToolsNoLinks": "Utiliza un lector ESP32 con el que estés familiarizado o busca otro lector ESP32 adecuado.",
                 "automatically": "Automatiquement",
                 "backupFlash": "Important : Sauvegarde ton firmware original non modifié",
                 "cancel": "Annuler",
@@ -1577,6 +1600,7 @@
                 "downloadStubFailed": "Le téléchargement du stub vers l'ESP32 a échoué ! Vérifie la connexion et réessaie !",
                 "error": "Erreur",
                 "executingReliabilityCheck": "Exécution du contrôle de fiabilité pour une connexion stable avec l'ESP32. Merci de patienter !",
+                "extendedFlashingLog": "Journal de flashage étendu",
                 "extractCertificates": "Extraire les certificats pour TeddyCloud",
                 "extractCertificatesAutomaticallyHint": "Cliquez sur le bouton \"Extraire les certificats pour TeddyCloud\" pour extraire et enregistrer automatiquement les certificats dans TeddyCloud.",
                 "extractCertificatesAutomaticallyHint2": "Les certificats seront stockés dans jusqu'à deux emplacements : d'abord dans le répertoire de base des certificats pour TeddyCloud ../{{certDir}}/ (si aucun certificat n'est déjà présent), puis dans le dossier ../{{certDir}}/{{mac}}.",
@@ -1612,12 +1636,15 @@
                 "hintPatchHost": "Entrez le nom d'hôte souhaité pour votre instance TeddyCloud.",
                 "hintPatchWifi": "Entrez optionnellement les identifiants WiFi pour votre Toniebox. Merci de ne le faire que si c'est vraiment nécessaire - normalement, si votre Toniebox était connectée à votre WiFi juste avant la mise à jour, ce n'est pas nécessaire.",
                 "hintReadESP32ImportFlash": "Débranche maintenant l'alimentation de ta Toniebox. Assure-toi que ton UART fonctionne en mode 3,3 V. Connecte ton UART au PC et à la Toniebox. Court-circuite les pastilles J100. Rebranche ensuite ta Toniebox à l'alimentation. Clique sur « Lire le flash » ou « Charger le fichier », puis choisis le port COM. Enfin, attends que l'étape soit terminée.",
+                "hintSaveLog": "Veuillez enregistrer la sortie du journal dans un fichier pour une analyse ultérieure en cas de problème.",
+                "hintUseOtherToolForAdditionalBackup": "Por favor, utiliza una herramienta adicional para crear una copia de seguridad independiente.",
                 "hostname": "Nom d'hôte TeddyCloud:",
                 "hostnameSettings": "Nom d'hôte TeddyCloud",
-                "hostnameTooLong": "Le nom d'hôte doit être inférieur à 13 caractères.",
+                "hostnameTooLong": "Si vous souhaitez connecter ultérieurement une Toniebox CC3200, le nom d'hôte ne doit pas dépasser 12 caractères (limitation du firmware).",
                 "importanceBackup": "Avant de faire des modifications sur ta Toniebox, télécharge une copie du firmware original et stocke-la de manière sécurisée. Cela te permettra de restaurer ta Toniebox à son état d'usine en cas de problème. Sauvegarde-la à plusieurs endroits, comme sur ton ordinateur principal ou portable, un disque dur externe ou une clé USB, et/ou un service de stockage en ligne fiable (comme Google Drive, Dropbox, OneDrive). Ne conserve jamais ta seule copie uniquement sur le serveur TeddyCloud.",
                 "infoTable": "Infos ESP32",
-                "invalidFlashData": "La lecture du flash ne contient que des 0x00 ou 0xFF. Vérifie la connexion et réessaie !",
+                "invalidFlashData": "La lecture / le chargement du flash ne contient que des 0x00 ou 0xFF. Vérifie la connexion ou le fichier chargé et réessaie !",
+                "invalidFlashDataCertificatesMissing": "La lecture / le chargement de la mémoire flash ne contient pas les certificats ; une erreur s'est produite. Veuillez vérifier la connexion ou le fichier chargé et réessayer. Erreur :",
                 "invalidSerialPort": "Port série invalide",
                 "loadFile": "Charger le fichier",
                 "manually": "Manuellement",
@@ -1641,9 +1668,12 @@
                 "resetBoxine": "Réinitialiser la box",
                 "resetBoxineTooltip": "Pour réinitialiser ta Toniebox à son firmware d'origine, appuie sur ce bouton pour commencer le processus. Tu devras sélectionner la sauvegarde originale du firmware, qui sera ensuite installée sur ta Toniebox dans son état d'origine. Malheureusement, si tu n'as pas de sauvegarde du firmware d'origine, il ne sera pas possible de réinitialiser ta Toniebox.",
                 "retrievingMac": "Récupération de l'adresse MAC...",
+                "save": "Enregistrer le journal",
+                "showLog": "Afficher les détails du journal",
                 "titleESP32FirmwareFlashed": "ESP32 flashé",
                 "titleFlashESP32": "Flasher l'ESP32",
                 "titlePatchFlash": "Patch Flash",
+                "titlePreparations": "Preparación y notas importantes",
                 "titleReadESP32ImportFlash": "Lire l'ESP32/Importer le Flash",
                 "uploadFailed": "Échec du téléchargement",
                 "uploading": "Téléchargement en cours...",
@@ -1723,6 +1753,12 @@
         "offline": "hors ligne",
         "online": "en ligne",
         "processing": "Traitement en cours...",
+        "tb2BoxFlashing": {
+            "navigationTitle": "TB2",
+            "title": "TB2 Flashage de la boîte",
+            "underDevelopment": "En développement",
+            "underDevelopmentBePatient": "Nous travaillons actuellement sur une solution pour la version TB2. Veuillez avoir patience et revenir plus tard pour les mises à jour. En attendant, vous pouvez suivre l'avancement et les discussions dans notre forum ou le groupe Telegram."
+        },
         "title": "Vos Tonieboxes",
         "uploadTonieboxCertificatesModal": {
             "AttentionGeneralPath": "(ATTENTION: Chemin par défaut!)",
@@ -1730,7 +1766,9 @@
             "Label": "Certificats",
             "uploadPath": "Chemin de téléchargement (certDir):",
             "uploadTonieboxCertificates": "Télécharger les certificats pour la Toniebox{{name}}"
-        }
+        },
+        "warningUseAtYourOwnRisk": "Avertissement : utilisation à tes propres risques",
+        "warningUseAtYourOwnRiskText": "Flasher ta Toniebox avec un firmware modifié annulera la garantie et peut rendre la box inutilisable. Suis attentivement les instructions et assure-toi de bien comprendre les risques encourus."
     },
     "tonies": {
         "addNewCustomTonie": "Créer un nouveau modèle",
@@ -1809,7 +1847,8 @@
             "removeFile": "Supprimer le fichier",
             "saveAs": "Enregistrer le fichier sous",
             "serverSideEncoding": "Encodage côté serveur",
-            "sortAlphabetically": "Trier les fichiers par ordre alphabétique",
+            "sortAlphabeticallyLiteral": "Trier par ordre alphabétique (lexicographique)",
+            "sortAlphabeticallyNatural": "Trier par ordre alphabétique (ordre numérique)",
             "targetDirectory": "Choisir le répertoire cible",
             "title": "Encodeur audio",
             "tooManyFilesError": "Trop de fichiers !",
@@ -2021,8 +2060,8 @@
         "tafHeaderOf": "En-tête TAF de ",
         "tafHeaderToniesJsonHint": "Tu ne dois pas modifier les données ici lorsque tu les envoies au tonies-json. Cela inclut le nombre de pistes, même s'il est différent du nombre de pistes dans le champ track-desc !",
         "tap": {
-            "navigationTitle": "WIP: Listes de lecture audio",
-            "title": "WIP: Listes de lecture audio de Tonie"
+            "navigationTitle": "TeddyAudio Playlists",
+            "title": "TeddyAudio Playlists"
         },
         "tapEditor": {
             "addFile": "Ajouter un fichier",
@@ -2041,8 +2080,9 @@
             "nameRequired": "Le nom TAP doit être défini",
             "nameTooltip": "Définit le nom de la playlist",
             "save": "Enregistrer",
-            "titleCreate": "Créer un nouveau TAP",
-            "titleEdit": "Modifier le TAP"
+            "titleCreate": "Créer un nouveau TAP in {{path}}",
+            "titleCreateButton": "Créer un nouveau TAP",
+            "titleEdit": "Modifier le TAP {{name}}"
         },
         "teddyaudioplayer": {
             "continueInFooterAudioPlayer": "Continuer dans le lecteur audio en bas",
@@ -2078,6 +2118,7 @@
             "empty": "Vide - Sélectionne d'abord des Tonies ou Tags ou ajoute une image personnalisée !",
             "episodes": "Épisodes",
             "imagePosition": "Position de l'image",
+            "imageScale": "Échelle de l'image",
             "intro": "Recherche tous les Tonies et Tags, officiels et tes propres, pour créer ta feuille imprimable de Traveltonies (pièce).",
             "labelBackgroundColor": "Fond",
             "labelEditTitle": "Modifier les éléments de l'étiquette",

@@ -61,13 +61,13 @@ jobs:
           submodules: recursive
           ref: ${{ inputs.tcw_commit_hash }}
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
       - name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -75,7 +75,7 @@ jobs:
 
       - name: Docker meta matrix
         id: matrix_meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
@@ -120,7 +120,7 @@ jobs:
 
       - name: Build & push digest docker ${{ matrix.platform }}
         id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ inputs.dockerfile }}
@@ -164,7 +164,7 @@ jobs:
       - name: Push docker tags ${{ matrix.platform }}
         if: ${{ steps.docker-test.outcome == 'success' }}
         id: push_tags
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ inputs.dockerfile }}
@@ -179,14 +179,14 @@ jobs:
 
       - name: Upload digest
         if: ${{ steps.docker-test.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-${{ inputs.system }}-${{ steps.platform_strip.outputs.platform }}
           path: /tmp/digests/${{ github.sha }}/*
           if-no-files-found: error
       - name: Upload release file
         if: ${{ steps.docker-test.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ steps.platform_strip.outputs.platform }}-${{ inputs.system }}
           path: /tmp/teddycloud.${{ steps.platform_strip.outputs.platform }}.${{ inputs.system }}.release.zip
@@ -200,7 +200,7 @@ jobs:
       - name: Set lowercase registry
         run: echo "REGISTRY_IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/teddycloud" >> $GITHUB_ENV
       - name: Download digests
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           pattern: digests-${{ inputs.system }}-*
           merge-multiple: true
@@ -220,10 +220,10 @@ jobs:
 
       - name: Set up Docker Buildx
         if: ${{ steps.check_digests.outputs.has_digests == 'true' }}
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Login to GHCR
         if: ${{ steps.check_digests.outputs.has_digests == 'true' }}
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -231,7 +231,7 @@ jobs:
       - name: Docker meta
         if: ${{ steps.check_digests.outputs.has_digests == 'true' }}
         id: teddycloud_meta # you'll use this in the next step
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           # list of Docker images to use as base name for tags
           images: ${{ env.REGISTRY_IMAGE }}
